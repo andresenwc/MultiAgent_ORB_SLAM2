@@ -29,8 +29,11 @@
 namespace ORB_SLAM2
 {
 
-System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
-               const bool bUseViewer):mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false),mbActivateLocalizationMode(false),
+System::System(const string &strVocFile, const string &strSettingsFile,
+               const eSensor sensor, const string &id,
+               const bool bUseViewer):
+        mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)),
+        mbReset(false), mbActivateLocalizationMode(false),
         mbDeactivateLocalizationMode(false)
 {
     // Output welcome message
@@ -97,7 +100,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     //Initialize the Viewer thread and launch
     if(bUseViewer)
     {
-        mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile);
+        mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile,id);
         mptViewer = new thread(&Viewer::Run, mpViewer);
         mpTracker->SetViewer(mpViewer);
     }
@@ -111,6 +114,15 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
     mpLoopCloser->SetTracker(mpTracker);
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
+}
+
+System::System(const string &strVocFile, const string &strSettingsFile,
+               const eSensor sensor, const bool bUseViewer):
+        mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)),
+        mbReset(false), mbActivateLocalizationMode(false),
+        mbDeactivateLocalizationMode(false)
+{
+    System(strVocFile, strSettingsFile, sensor, string("None"), bUseViewer);
 }
 
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)
