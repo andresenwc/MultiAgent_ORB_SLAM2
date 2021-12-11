@@ -19,7 +19,7 @@
 */
 
 
-
+#include "Defines.h"
 #include "System.h"
 #include "Converter.h"
 #include <thread>
@@ -30,7 +30,7 @@ namespace ORB_SLAM2
 {
 
 System::System(const string &strVocFile, const string &strSettingsFile,
-               const eSensor sensor, const string &id,
+               const int sensor, const string &id,
                const bool bUseViewer):
         mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)),
         mbReset(false), mbActivateLocalizationMode(false),
@@ -45,11 +45,11 @@ System::System(const string &strVocFile, const string &strSettingsFile,
 
     cout << "Input sensor was set to: ";
 
-    if(mSensor==MONOCULAR)
+    if(mSensor==ORB_SLAM2::MONOCULAR)
         cout << "Monocular" << endl;
-    else if(mSensor==STEREO)
+    else if(mSensor==ORB_SLAM2::STEREO)
         cout << "Stereo" << endl;
-    else if(mSensor==RGBD)
+    else if(mSensor==ORB_SLAM2::RGBD)
         cout << "RGB-D" << endl;
 
     //Check settings file
@@ -90,11 +90,11 @@ System::System(const string &strVocFile, const string &strSettingsFile,
                              mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor);
 
     //Initialize the Local Mapping thread and launch
-    mpLocalMapper = new LocalMapping(mpMap, mSensor==MONOCULAR);
+    mpLocalMapper = new LocalMapping(mpMap, mSensor==ORB_SLAM2::MONOCULAR);
     mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run,mpLocalMapper);
 
     //Initialize the Loop Closing thread and launch
-    mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR);
+    mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=ORB_SLAM2::MONOCULAR);
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
     //Initialize the Viewer thread and launch
@@ -117,7 +117,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
 }
 
 System::System(const string &strVocFile, const string &strSettingsFile,
-               const eSensor sensor, const bool bUseViewer):
+               const int sensor, const bool bUseViewer):
         mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)),
         mbReset(false), mbActivateLocalizationMode(false),
         mbDeactivateLocalizationMode(false)
@@ -127,7 +127,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
 
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)
 {
-    if(mSensor!=STEREO)
+    if(mSensor!=ORB_SLAM2::STEREO)
     {
         cerr << "ERROR: you called TrackStereo but input sensor was not set to STEREO." << endl;
         exit(-1);
@@ -178,7 +178,7 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
 
 cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp)
 {
-    if(mSensor!=RGBD)
+    if(mSensor!=ORB_SLAM2::RGBD)
     {
         cerr << "ERROR: you called TrackRGBD but input sensor was not set to RGBD." << endl;
         exit(-1);
@@ -229,7 +229,7 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
 
 cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
 {
-    if(mSensor!=MONOCULAR)
+    if(mSensor!=ORB_SLAM2::MONOCULAR)
     {
         cerr << "ERROR: you called TrackMonocular but input sensor was not set to Monocular." << endl;
         exit(-1);
@@ -334,7 +334,7 @@ void System::Shutdown()
 void System::SaveTrajectoryTUM(const string &filename)
 {
     cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
-    if(mSensor==MONOCULAR)
+    if(mSensor==ORB_SLAM2::MONOCULAR)
     {
         cerr << "ERROR: SaveTrajectoryTUM cannot be used for monocular." << endl;
         return;
@@ -431,7 +431,7 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
 void System::SaveTrajectoryKITTI(const string &filename)
 {
     cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
-    if(mSensor==MONOCULAR)
+    if(mSensor==ORB_SLAM2::MONOCULAR)
     {
         cerr << "ERROR: SaveTrajectoryKITTI cannot be used for monocular." << endl;
         return;

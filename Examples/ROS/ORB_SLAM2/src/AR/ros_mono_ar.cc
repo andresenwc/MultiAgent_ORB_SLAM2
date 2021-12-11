@@ -30,6 +30,7 @@
 #include<opencv2/core/core.hpp>
 #include<opencv2/imgproc/imgproc.hpp>
 
+#include"Defines.h"
 #include"../../../include/System.h"
 
 #include"ViewerAR.h"
@@ -67,7 +68,7 @@ int main(int argc, char **argv)
     }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::MONOCULAR,false);
+    ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::MONOCULAR,false);
 
 
     cout << endl << endl;

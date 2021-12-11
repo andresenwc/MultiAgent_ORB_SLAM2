@@ -30,6 +30,7 @@
 
 #include<opencv2/core/core.hpp>
 
+#include<Defines.h>
 #include<System.h>
 
 using namespace std;
@@ -54,8 +55,8 @@ int main(int argc, char **argv)
     const int nImages = vstrImageLeft1.size();
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM2::System SLAM1(argv[1],argv[2],ORB_SLAM2::System::STEREO,string("SLAM1"),true);
-    ORB_SLAM2::System SLAM2(argv[1],argv[2],ORB_SLAM2::System::STEREO,string("SLAM2"),true);
+    ORB_SLAM2::System SLAM1(argv[1],argv[2],ORB_SLAM2::STEREO,string("SLAM1"),true);
+    ORB_SLAM2::System SLAM2(argv[1],argv[2],ORB_SLAM2::STEREO,string("SLAM2"),true);
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
