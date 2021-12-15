@@ -31,6 +31,7 @@
 #include<opencv2/core/core.hpp>
 
 #include<Defines.h>
+#include<MultiAgentServer.h>
 #include<System.h>
 
 using namespace std;
@@ -54,7 +55,10 @@ int main(int argc, char **argv)
 
     const int nImages = vstrImageLeft1.size();
 
-    // Create SLAM system. It initializes all system threads and gets ready to process frames.
+    // Create Server system. Initializes server threads and gets ready to process keyframs from client SLAM systems.
+    ORB_SLAM2::MultiAgentServer Server = ORB_SLAM2::MultiAgentServer(argv[1], argv[2], ORB_SLAM2::STEREO);
+
+    // Create Client SLAM systems. Initializes all system threads and gets ready to process frames from each client.
     ORB_SLAM2::System SLAM1(argv[1],argv[2],ORB_SLAM2::STEREO,string("SLAM1"),true);
     ORB_SLAM2::System SLAM2(argv[1],argv[2],ORB_SLAM2::STEREO,string("SLAM2"),true);
 

@@ -33,6 +33,20 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer,
     mpTracker(pTracking), mbFinishRequested(false), mbFinished(true),
     mbStopped(true), mbStopRequested(false), id(id)
 {
+    Init(strSettingPath);
+}
+
+Viewer::Viewer(
+    MultiAgentServer* pServer, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer,
+    const int sensor, const string &strSettingPath, const string &id
+):  
+    mpServer(pServer), mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), sensorType(sensor),
+    mbFinishRequested(false), mbFinished(true), mbStopped(true), mbStopRequested(false), id(id)
+{
+    Init(strSettingPath);
+}
+
+void Viewer::Init(const string &strSettingPath) {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
 
     float fps = fSettings["Camera.fps"];

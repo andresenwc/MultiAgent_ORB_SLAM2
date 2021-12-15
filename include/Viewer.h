@@ -22,6 +22,7 @@
 #ifndef VIEWER_H
 #define VIEWER_H
 
+#include "MultiAgentServer.h"
 #include "FrameDrawer.h"
 #include "MapDrawer.h"
 #include "Tracking.h"
@@ -36,11 +37,14 @@ class Tracking;
 class FrameDrawer;
 class MapDrawer;
 class System;
+class MultiAgentServer;
 
 class Viewer
 {
 public:
     Viewer(System* pSystem, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Tracking *pTracking, const string &strSettingPath, const string &id);
+
+    Viewer(MultiAgentServer* pServer, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, const int sensor, const string &strSettingPath, const string &id);
 
     // Main thread function. Draw points, keyframes, the current camera pose and the last processed
     // frame. Drawing is refreshed according to the camera fps. We use Pangolin.
@@ -57,13 +61,16 @@ public:
     void Release();
 
 private:
+    void Init(const string &strSettingPath);
 
     bool Stop();
 
     System* mpSystem;
+    MultiAgentServer* mpServer;
     FrameDrawer* mpFrameDrawer;
     MapDrawer* mpMapDrawer;
     Tracking* mpTracker;
+    int sensorType;
 
     // 1/fps in ms
     double mT;
