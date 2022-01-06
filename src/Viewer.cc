@@ -31,7 +31,7 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer,
                const string &strSettingPath, const string &id):
     mpSystem(pSystem), mpFrameDrawer(pFrameDrawer),mpMapDrawer(pMapDrawer),
     mpTracker(pTracking), mbFinishRequested(false), mbFinished(true),
-    mbStopped(true), mbStopRequested(false), id(id)
+    mbStopped(true), mbStopRequested(false), id(id), mpServer(nullptr)
 {
     Init(strSettingPath);
 }
@@ -40,8 +40,9 @@ Viewer::Viewer(
     MultiAgentServer* pServer, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer,
     const int sensor, const string &strSettingPath, const string &id
 ):  
-    mpServer(pServer), mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), sensorType(sensor),
-    mbFinishRequested(false), mbFinished(true), mbStopped(true), mbStopRequested(false), id(id)
+    mpServer(pServer), mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer),
+    sensorType(sensor), mbFinishRequested(false), mbFinished(true),
+    mbStopped(true), mbStopRequested(false), id(id), mpSystem(nullptr)
 {
     Init(strSettingPath);
 }
@@ -105,8 +106,10 @@ void Viewer::Run()
     Twc.SetIdentity();
 
     string current_frame_name = "ORB-Slam2: Current Frame, ID: " + id;
-    cv::namedWindow(current_frame_name);
-    cv::startWindowThread();
+    if (mpSystem) {
+        cv::namedWindow(current_frame_name);
+        cv::startWindowThread();
+    }
 
     bool bFollow = true;
     bool bLocalizationMode = false;
@@ -153,8 +156,10 @@ void Viewer::Run()
 
         pangolin::FinishFrame();
 
-        cv::Mat im = mpFrameDrawer->DrawFrame();
-        cv::imshow(current_frame_name,im);
+        if (mpSystem) {
+            cv::Mat im = mpFrameDrawer->DrawFrame();
+            cv::imshow(current_frame_name,im);
+        }
 
         if(menuReset)
         {

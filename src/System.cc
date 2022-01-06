@@ -125,6 +125,10 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     System(strVocFile, strSettingsFile, sensor, string("None"), bUseViewer);
 }
 
+void System::RegisterServer(MultiAgentServer* pServer) {
+    mpServer = pServer;
+}
+
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)
 {
     if(mSensor!=ORB_SLAM2::STEREO)

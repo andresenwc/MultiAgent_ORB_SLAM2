@@ -37,6 +37,7 @@
 #include "KeyFrameDatabase.h"
 #include "ORBVocabulary.h"
 #include "Viewer.h"
+#include "MultiAgentServer.h"
 
 namespace ORB_SLAM2
 {
@@ -47,6 +48,7 @@ class Map;
 class Tracking;
 class LocalMapping;
 class LoopClosing;
+class MultiAgentServer;
 
 class System
 {
@@ -64,6 +66,9 @@ public:
     System(const string &strVocFile, const string &strSettingsFile, const int sensor, const string &id, const bool bUseViewer = true);
 
     System(const string &strVocFile, const string &strSettingsFile, const int sensor, const bool bUseViewer = true);
+
+    // Register a MultiAgentServer with the SLAM System for Multi-Agent SLAM
+    void RegisterServer(MultiAgentServer* pServer);
 
     // Proccess the given stereo frame. Images must be synchronized and rectified.
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
@@ -127,6 +132,9 @@ public:
     std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
 
 private:
+
+    // MultiAgentServer pointer
+    MultiAgentServer* mpServer;
 
     // Input sensor
     int mSensor;

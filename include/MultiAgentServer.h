@@ -3,6 +3,8 @@
 
 #include<string>
 #include<stdio.h>
+#include<vector>
+#include<thread>
 
 #include "Defines.h"
 #include "ORBVocabulary.h"
@@ -10,8 +12,9 @@
 #include "Map.h"
 #include "FrameDrawer.h"
 #include "MapDrawer.h"
+#include "MultiAgentLoopClosing.h"
 #include "Viewer.h"
-
+#include "System.h"
 
 namespace ORB_SLAM2 {
 
@@ -20,25 +23,34 @@ class FrameDrawer;
 class Atlas;
 class Tracking;
 class LocalMapping;
-class LoopClosing;
+class MultiAgentLoopClosing;
+class System;
 
 class MultiAgentServer {
     public:
         MultiAgentServer(const string &strVocFile, const string &strSettingsFile, const int sensor);
 
+        void RegisterClient(System* client);
+
     private:
-        int sensorType;
+        int mSensor;
 
-        ORBVocabulary* vocabulary;
+        ORBVocabulary* mpVocabulary;
 
-        KeyFrameDatabase* globalKeyFrameDatabase;
+        KeyFrameDatabase* mpKeyFrameDatabase;
 
-        Map* globalMap;
+        Map* mpMap;
 
-        FrameDrawer* globalFrameDrawer;
-        MapDrawer* globalMapDrawer;
+        FrameDrawer* mpFrameDrawer;
+        MapDrawer* mpMapDrawer;
 
-        Viewer* globalViewer;
+        MultiAgentLoopClosing* mpLoopClosing;
+        std::thread* mptLoopClosing;
+
+        Viewer* mpViewer;
+        std::thread* mptViewer;
+
+        std::vector<System*> clients;
 };
 } // namespace ORB_SLAM2
 
