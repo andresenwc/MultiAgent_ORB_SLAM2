@@ -39,6 +39,7 @@ namespace ORB_SLAM2
 class Tracking;
 class LocalMapping;
 class KeyFrameDatabase;
+class System;
 
 
 class LoopClosing
@@ -51,7 +52,7 @@ public:
 
 public:
 
-    LoopClosing(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale);
+    LoopClosing(System* pSystem, Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale);
 
     void SetTracker(Tracking* pTracker);
 
@@ -93,6 +94,8 @@ protected:
     void SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap);
 
     void CorrectLoop();
+
+    System* mpSystem;
 
     void ResetIfRequested();
     bool mbResetRequested;

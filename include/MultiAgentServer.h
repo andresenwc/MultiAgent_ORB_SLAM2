@@ -9,21 +9,17 @@
 #include "Defines.h"
 #include "ORBVocabulary.h"
 #include "KeyFrameDatabase.h"
-#include "Map.h"
-#include "FrameDrawer.h"
-#include "MapDrawer.h"
-#include "MultiAgentLoopClosing.h"
-#include "Viewer.h"
+#include "ServerViewer.h"
+#include "MultiMapDrawer.h"
+#include "MultiMap.h"
+#include "MapFusion.h"
 #include "System.h"
 
 namespace ORB_SLAM2 {
 
-class Viewer;
-class FrameDrawer;
-class Atlas;
-class Tracking;
-class LocalMapping;
-class MultiAgentLoopClosing;
+class ServerViewer;
+class MultiMap;
+class MapFusion;
 class System;
 
 class MultiAgentServer {
@@ -31,6 +27,7 @@ class MultiAgentServer {
         MultiAgentServer(const string &strVocFile, const string &strSettingsFile, const int sensor);
 
         void RegisterClient(System* client);
+        void InsertKeyFrame(KeyFrame *pKF);
 
     private:
         int mSensor;
@@ -39,18 +36,19 @@ class MultiAgentServer {
 
         KeyFrameDatabase* mpKeyFrameDatabase;
 
-        Map* mpMap;
+        MultiMap* mpMultiMap;
 
-        FrameDrawer* mpFrameDrawer;
-        MapDrawer* mpMapDrawer;
+        MultiMapDrawer* mpMultiMapDrawer;
 
-        MultiAgentLoopClosing* mpLoopClosing;
-        std::thread* mptLoopClosing;
+        MapFusion* mpMapFusion;
+        std::thread* mptMapFusion;
 
-        Viewer* mpViewer;
-        std::thread* mptViewer;
+        ServerViewer* mpServerViewer;
+        std::thread* mptServerViewer;
 
         std::vector<System*> clients;
+
+        std::list<KeyFrame*> mlNewKeyFrames;
 };
 } // namespace ORB_SLAM2
 

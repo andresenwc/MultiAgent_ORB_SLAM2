@@ -56,6 +56,7 @@ public:
 
    // Relocalization
    std::vector<KeyFrame*> DetectRelocalizationCandidates(Frame* F);
+  std::vector<list<KeyFrame*> > mvInvertedFile;
 
 protected:
 
@@ -63,7 +64,6 @@ protected:
   const ORBVocabulary* mpVoc;
 
   // Inverted file
-  std::vector<list<KeyFrame*> > mvInvertedFile;
 
   // Mutex
   std::mutex mMutex;

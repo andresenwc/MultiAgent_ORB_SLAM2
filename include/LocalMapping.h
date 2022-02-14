@@ -36,11 +36,12 @@ namespace ORB_SLAM2
 class Tracking;
 class LoopClosing;
 class Map;
+class System;
 
 class LocalMapping
 {
 public:
-    LocalMapping(Map* pMap, const float bMonocular);
+    LocalMapping(System* pSystem, Map* pMap, const float bMonocular);
 
     void SetLoopCloser(LoopClosing* pLoopCloser);
 
@@ -86,6 +87,8 @@ protected:
     cv::Mat ComputeF12(KeyFrame* &pKF1, KeyFrame* &pKF2);
 
     cv::Mat SkewSymmetricMatrix(const cv::Mat &v);
+
+    System* mpSystem;
 
     bool mbMonocular;
 

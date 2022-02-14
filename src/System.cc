@@ -34,7 +34,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
                const bool bUseViewer):
         mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)),
         mbReset(false), mbActivateLocalizationMode(false),
-        mbDeactivateLocalizationMode(false)
+        mbDeactivateLocalizationMode(false), mpServer(nullptr)
 {
     // Output welcome message
     cout << endl <<
@@ -90,11 +90,11 @@ System::System(const string &strVocFile, const string &strSettingsFile,
                              mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor);
 
     //Initialize the Local Mapping thread and launch
-    mpLocalMapper = new LocalMapping(mpMap, mSensor==ORB_SLAM2::MONOCULAR);
+    mpLocalMapper = new LocalMapping(this, mpMap, mSensor==ORB_SLAM2::MONOCULAR);
     mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run,mpLocalMapper);
 
     //Initialize the Loop Closing thread and launch
-    mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=ORB_SLAM2::MONOCULAR);
+    mpLoopCloser = new LoopClosing(this, mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=ORB_SLAM2::MONOCULAR);
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
     //Initialize the Viewer thread and launch
@@ -120,13 +120,17 @@ System::System(const string &strVocFile, const string &strSettingsFile,
                const int sensor, const bool bUseViewer):
         mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)),
         mbReset(false), mbActivateLocalizationMode(false),
-        mbDeactivateLocalizationMode(false)
+        mbDeactivateLocalizationMode(false), mpServer(nullptr)
 {
     System(strVocFile, strSettingsFile, sensor, string("None"), bUseViewer);
 }
 
 void System::RegisterServer(MultiAgentServer* pServer) {
     mpServer = pServer;
+}
+
+MultiAgentServer* System::getServer() {
+    return mpServer;
 }
 
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)

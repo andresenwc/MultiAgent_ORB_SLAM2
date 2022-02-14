@@ -1,4 +1,5 @@
-#include "MultiAgentServer.h"
+#include "MultiMap.h"
+#include "MapFusion.h"
 
 namespace ORB_SLAM2 {
 
@@ -23,25 +24,29 @@ MultiAgentServer::MultiAgentServer(
     // Create KeyFrame Database
     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
 
-    // Create the Atlas
-    mpMap = new Map();
+    // Create the Multi-Map (set containing multiple maps)
+    mpMultiMap = new MultiMap();
 
-    // Create Drawers. These are used by the Viewer.
-    mpFrameDrawer = new FrameDrawer(mpMap);
-    mpMapDrawer = new MapDrawer(mpMap, strSettingsFile);
+    // Create MultiMapDrawer. This is used by the ServerViewer.
+    mpMultiMapDrawer = new MultiMapDrawer(mpMultiMap, strSettingsFile);
 
-    // Initialize the Multi Agent Loop Closing thread and launch
-    mpLoopClosing = new MultiAgentLoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=ORB_SLAM2::MONOCULAR);
-    mptLoopClosing = new thread(&MultiAgentLoopClosing::Run, mpLoopClosing);
+    // Initialize the Map Fusion thread and launch
+    mpMapFusion = new MapFusion(mpMultiMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=ORB_SLAM2::MONOCULAR);
+    mptMapFusion = new thread(&MapFusion::Run, mpMapFusion);
 
     // Initialize the Viewer thread and launch
-    mpViewer = new Viewer(this, mpFrameDrawer, mpMapDrawer,
-                              mSensor, string(strSettingsFile), string("Server"));
-    mptViewer = new thread(&Viewer::Run, mpViewer);
+    mpServerViewer = new ServerViewer(this, mpMultiMapDrawer, mSensor, string(strSettingsFile));
+    mptServerViewer = new thread(&ServerViewer::Run, mpServerViewer);
 }
 
 void MultiAgentServer::RegisterClient(System* client) {
     clients.push_back(client);
+}
+
+void MultiAgentServer::InsertKeyFrame(KeyFrame *pKF)
+{
+    mlNewKeyFrames.push_back(pKF);
+    mpMapFusion->InsertKeyFrame(pKF);
 }
 
 }

@@ -69,6 +69,7 @@ public:
 
     // Register a MultiAgentServer with the SLAM System for Multi-Agent SLAM
     void RegisterServer(MultiAgentServer* pServer);
+    MultiAgentServer* getServer();
 
     // Proccess the given stereo frame. Images must be synchronized and rectified.
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.

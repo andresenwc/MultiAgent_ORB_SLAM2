@@ -18,12 +18,12 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef MULTIAGENTLOOPCLOSING_H
-#define MULTIAGENTLOOPCLOSING_H
+#ifndef MAPFUSION_H
+#define MAPFUSION_H
 
 #include "KeyFrame.h"
 #include "LocalMapping.h"
-#include "Map.h"
+#include "MultiMap.h"
 #include "ORBVocabulary.h"
 #include "Tracking.h"
 
@@ -39,45 +39,33 @@ namespace ORB_SLAM2
 class Tracking;
 class LocalMapping;
 class KeyFrameDatabase;
+class MultiMap;
+class KeyFrame;
 
 
-class MultiAgentLoopClosing
+class MapFusion
 {
 public:
 
     typedef pair<set<KeyFrame*>,int> ConsistentGroup;    
-    typedef map<KeyFrame*,g2o::Sim3,std::less<KeyFrame*>,
-        Eigen::aligned_allocator<std::pair<const KeyFrame*, g2o::Sim3> > > KeyFrameAndPose;
+    // typedef map<KeyFrame*,g2o::Sim3,std::less<KeyFrame*>,
+    //     Eigen::aligned_allocator<std::pair<const KeyFrame*, g2o::Sim3> > > KeyFrameAndPose;
 
 public:
 
-    MultiAgentLoopClosing(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale);
-
-    void SetTracker(Tracking* pTracker);
-
-    void SetLocalMapper(LocalMapping* pLocalMapper);
+    MapFusion(MultiMap* pMultiMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale);
 
     // Main function
-    void Run();
+    void Run(); 
 
-    void InsertKeyFrame(KeyFrame *pKF);
+    // Add KeyFrame to the queue
+    void InsertKeyFrame(KeyFrame* pKF);
 
+    // For handling reset requests
     void RequestReset();
 
-    // This function will run in a separate thread
-    void RunGlobalBundleAdjustment(unsigned long nLoopKF);
-
-    bool isRunningGBA(){
-        unique_lock<std::mutex> lock(mMutexGBA);
-        return mbRunningGBA;
-    }
-    bool isFinishedGBA(){
-        unique_lock<std::mutex> lock(mMutexGBA);
-        return mbFinishedGBA;
-    }   
-
+    // For handling finish requests
     void RequestFinish();
-
     bool isFinished();
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -86,66 +74,44 @@ protected:
 
     bool CheckNewKeyFrames();
 
-    bool DetectLoop();
+    bool DetectFusionCandidates();
 
-    bool ComputeSim3();
-
-    void SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap);
-
-    void CorrectLoop();
-
+    // For handling reset requests
     void ResetIfRequested();
     bool mbResetRequested;
     std::mutex mMutexReset;
 
+    // For handling finish requests
     bool CheckFinish();
     void SetFinish();
     bool mbFinishRequested;
     bool mbFinished;
     std::mutex mMutexFinish;
 
-    Map* mpMap;
-    Tracking* mpTracker;
+    MultiMap* mpMultiMap;
 
     KeyFrameDatabase* mpKeyFrameDB;
     ORBVocabulary* mpORBVocabulary;
 
-    LocalMapping *mpLocalMapper;
+    std::list<KeyFrame*> mlpFusionKeyFrameQueue;
+    std::mutex mMutexFusionQueue;
 
-    std::list<KeyFrame*> mlpLoopKeyFrameQueue;
-
-    std::mutex mMutexLoopQueue;
-
-    // Loop detector parameters
+    // Fusion candidate detection parameters
     float mnCovisibilityConsistencyTh;
 
-    // Loop detector variables
+    // Fusion candidate detection variables (place recognition)
     KeyFrame* mpCurrentKF;
-    KeyFrame* mpMatchedKF;
+    // KeyFrame* mpMatchedKF;
     std::vector<ConsistentGroup> mvConsistentGroups;
     std::vector<KeyFrame*> mvpEnoughConsistentCandidates;
-    std::vector<KeyFrame*> mvpCurrentConnectedKFs;
-    std::vector<MapPoint*> mvpCurrentMatchedPoints;
-    std::vector<MapPoint*> mvpLoopMapPoints;
-    cv::Mat mScw;
-    g2o::Sim3 mg2oScw;
+    // std::vector<KeyFrame*> mvpCurrentConnectedKFs;
+    // std::vector<MapPoint*> mvpCurrentMatchedPoints;
+    // std::vector<MapPoint*> mvpLoopMapPoints;
+    // cv::Mat mScw;
+    // g2o::Sim3 mg2oScw;
 
-    long unsigned int mLastLoopKFid;
-
-    // Variables related to Global Bundle Adjustment
-    bool mbRunningGBA;
-    bool mbFinishedGBA;
-    bool mbStopGBA;
-    std::mutex mMutexGBA;
-    std::thread* mpThreadGBA;
-
-    // Fix scale in the stereo/RGB-D case
-    bool mbFixScale;
-
-
-    bool mnFullBAIdx;
 };
 
 } //namespace ORB_SLAM
 
-#endif // MULTIAGENTLOOPCLOSING_H
+#endif // MAPFUSION_H

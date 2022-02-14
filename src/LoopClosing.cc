@@ -35,10 +35,12 @@
 namespace ORB_SLAM2
 {
 
-LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, const bool bFixScale):
-    mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
-    mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpMatchedKF(NULL), mLastLoopKFid(0), mbRunningGBA(false), mbFinishedGBA(true),
-    mbStopGBA(false), mpThreadGBA(NULL), mbFixScale(bFixScale), mnFullBAIdx(0)
+LoopClosing::LoopClosing(System* pSystem, Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, const bool bFixScale):
+    mpSystem(pSystem), mbResetRequested(false), mbFinishRequested(false),
+    mbFinished(true), mpMap(pMap), mpKeyFrameDB(pDB), mpORBVocabulary(pVoc),
+    mpMatchedKF(NULL), mLastLoopKFid(0), mbRunningGBA(false),
+    mbFinishedGBA(true), mbStopGBA(false), mpThreadGBA(NULL),
+    mbFixScale(bFixScale), mnFullBAIdx(0)
 {
     mnCovisibilityConsistencyTh = 3;
 }
@@ -73,6 +75,12 @@ void LoopClosing::Run()
                    // Perform loop fusion and pose graph optimization
                    CorrectLoop();
                }
+            }
+
+            // Insert new keyframe into server, if it exists
+            MultiAgentServer* mpServer = mpSystem->getServer();
+            if (mpServer) {
+                mpServer->InsertKeyFrame(mpCurrentKF);
             }
         }       
 

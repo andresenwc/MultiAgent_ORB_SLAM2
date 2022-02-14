@@ -28,9 +28,11 @@
 namespace ORB_SLAM2
 {
 
-LocalMapping::LocalMapping(Map *pMap, const float bMonocular):
-    mbMonocular(bMonocular), mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
-    mbAbortBA(false), mbStopped(false), mbStopRequested(false), mbNotStop(false), mbAcceptKeyFrames(true)
+LocalMapping::LocalMapping(System* pSystem, Map *pMap, const float bMonocular):
+    mpSystem(pSystem), mbMonocular(bMonocular), mbResetRequested(false),
+    mbFinishRequested(false), mbFinished(true), mpMap(pMap), mbAbortBA(false),
+    mbStopped(false), mbStopRequested(false), mbNotStop(false),
+    mbAcceptKeyFrames(true)
 {
 }
 
