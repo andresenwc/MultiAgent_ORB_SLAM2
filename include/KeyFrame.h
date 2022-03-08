@@ -47,6 +47,8 @@ public:
 
     Map* GetMap();
 
+    void SetMap(Map* pMap);
+
     // Pose functions
     void SetPose(const cv::Mat &Tcw);
     cv::Mat GetPose();

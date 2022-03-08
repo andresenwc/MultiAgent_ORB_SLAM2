@@ -29,6 +29,11 @@ class MultiAgentServer {
         void RegisterClient(System* client);
         void InsertKeyFrame(KeyFrame *pKF);
 
+        void RequestStopMapping();
+        void RequestReleaseMapping();
+
+        void InformNewBigChange();
+
     private:
         int mSensor;
 
@@ -47,8 +52,6 @@ class MultiAgentServer {
         std::thread* mptServerViewer;
 
         std::vector<System*> clients;
-
-        std::list<KeyFrame*> mlNewKeyFrames;
 };
 } // namespace ORB_SLAM2
 

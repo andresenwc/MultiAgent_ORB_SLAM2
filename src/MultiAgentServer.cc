@@ -31,7 +31,7 @@ MultiAgentServer::MultiAgentServer(
     mpMultiMapDrawer = new MultiMapDrawer(mpMultiMap, strSettingsFile);
 
     // Initialize the Map Fusion thread and launch
-    mpMapFusion = new MapFusion(mpMultiMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=ORB_SLAM2::MONOCULAR);
+    mpMapFusion = new MapFusion(this, mpMultiMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=ORB_SLAM2::MONOCULAR);
     mptMapFusion = new thread(&MapFusion::Run, mpMapFusion);
 
     // Initialize the Viewer thread and launch
@@ -43,10 +43,41 @@ void MultiAgentServer::RegisterClient(System* client) {
     clients.push_back(client);
 }
 
-void MultiAgentServer::InsertKeyFrame(KeyFrame *pKF)
-{
-    mlNewKeyFrames.push_back(pKF);
+void MultiAgentServer::InsertKeyFrame(KeyFrame *pKF) {
     mpMapFusion->InsertKeyFrame(pKF);
+}
+
+void MultiAgentServer::RequestStopMapping() {
+
+    cout << "\tStopping local mapping." << endl;
+
+    // request stops
+    for (auto client : clients) {
+        client->getLocalMapper()->RequestStop();
+    }
+
+    // wait for all local mappers to stop
+    for (auto client : clients) {
+        while(!(client->getLocalMapper()->isStopped())) {
+            usleep(1000);
+        }
+    }
+
+    cout << "\tLocal mapping stopped." << endl;
+}
+
+void MultiAgentServer::RequestReleaseMapping() {
+    for (auto client : clients) {
+        client->getLocalMapper()->Release();
+    }
+
+    cout << "\tLocal mapping released." << endl;
+}
+
+void MultiAgentServer::InformNewBigChange() {
+    for (auto client : clients) {
+        client->InformNewBigChange();
+    }
 }
 
 }

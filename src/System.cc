@@ -133,6 +133,14 @@ MultiAgentServer* System::getServer() {
     return mpServer;
 }
 
+LocalMapping* System::getLocalMapper() {
+    return mpLocalMapper;
+}
+
+void System::InformNewBigChange() {
+    mpMap->InformNewBigChange();
+}
+
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)
 {
     if(mSensor!=ORB_SLAM2::STEREO)

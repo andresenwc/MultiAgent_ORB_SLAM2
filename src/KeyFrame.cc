@@ -60,6 +60,10 @@ Map* KeyFrame::GetMap() {
     return mpMap;
 }
 
+void KeyFrame::SetMap(Map* pMap) {
+    mpMap = pMap;
+}
+
 void KeyFrame::ComputeBoW()
 {
     if(mBowVec.empty() || mFeatVec.empty())

@@ -48,18 +48,23 @@ class MapFusion
 public:
 
     typedef pair<set<KeyFrame*>,int> ConsistentGroup;    
-    // typedef map<KeyFrame*,g2o::Sim3,std::less<KeyFrame*>,
-    //     Eigen::aligned_allocator<std::pair<const KeyFrame*, g2o::Sim3> > > KeyFrameAndPose;
+    typedef map<KeyFrame*, g2o::Sim3, std::less<KeyFrame*>,
+        Eigen::aligned_allocator<std::pair<const KeyFrame*, g2o::Sim3>>> 
+        KeyFrameAndPose;
 
 public:
 
-    MapFusion(MultiMap* pMultiMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale);
+    MapFusion(MultiAgentServer* pServer, MultiMap* pMultiMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc,const bool bFixScale);
 
     // Main function
     void Run(); 
 
     // Add KeyFrame to the queue
     void InsertKeyFrame(KeyFrame* pKF);
+
+    // GBA functions
+    bool isRunningGBA();
+    bool isFinishedGBA();
 
     // For handling reset requests
     void RequestReset();
@@ -76,17 +81,13 @@ protected:
 
     bool DetectFusionCandidates();
 
-    // For handling reset requests
-    void ResetIfRequested();
-    bool mbResetRequested;
-    std::mutex mMutexReset;
+    bool ComputeSim3();
 
-    // For handling finish requests
-    bool CheckFinish();
-    void SetFinish();
-    bool mbFinishRequested;
-    bool mbFinished;
-    std::mutex mMutexFinish;
+    void FuseMaps();
+
+    void SearchAndFuse(const KeyFrameAndPose &CorrectedPoseMap);
+
+    MultiAgentServer* mpServer;
 
     MultiMap* mpMultiMap;
 
@@ -101,14 +102,41 @@ protected:
 
     // Fusion candidate detection variables (place recognition)
     KeyFrame* mpCurrentKF;
-    // KeyFrame* mpMatchedKF;
     std::vector<ConsistentGroup> mvConsistentGroups;
     std::vector<KeyFrame*> mvpEnoughConsistentCandidates;
-    // std::vector<KeyFrame*> mvpCurrentConnectedKFs;
-    // std::vector<MapPoint*> mvpCurrentMatchedPoints;
-    // std::vector<MapPoint*> mvpLoopMapPoints;
-    // cv::Mat mScw;
-    // g2o::Sim3 mg2oScw;
+
+    // sim3 calculation variables
+    KeyFrame* mpMatchedKF;
+    std::vector<MapPoint*> mvpCurrentMatchedPoints;
+    std::vector<MapPoint*> mvpLoopMapPoints;
+    cv::Mat mScw;
+    g2o::Sim3 mg2oScw;
+
+    // Map fusion variables
+    std::vector<KeyFrame*> mvpCurrentConnectedKFs;
+
+
+    // Fix scale in the stereo/RGB-D case
+    bool mbFixScale;
+
+    // Variables related to GBA
+    std::mutex mMutexGBA;
+    bool mbRunningGBA;
+    bool mbFinishedGBA;
+    bool mbStopGBA;
+    std::thread* mpThreadGBA;
+
+    // For handling reset requests
+    void ResetIfRequested();
+    bool mbResetRequested;
+    std::mutex mMutexReset;
+
+    // For handling finish requests
+    bool CheckFinish();
+    void SetFinish();
+    bool mbFinishRequested;
+    bool mbFinished;
+    std::mutex mMutexFinish;
 
 };
 
