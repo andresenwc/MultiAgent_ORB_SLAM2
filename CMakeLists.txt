@@ -52,8 +52,6 @@ add_library(${PROJECT_NAME} SHARED
 src/MultiAgentServer.cc
 src/MapFusion.cc
 src/MultiMap.cc
-src/MultiMapDrawer.cc
-src/ServerViewer.cc
 src/System.cc
 src/Tracking.cc
 src/LocalMapping.cc

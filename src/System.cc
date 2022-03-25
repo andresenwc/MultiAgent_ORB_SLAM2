@@ -78,7 +78,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
 
     //Create the Map
-    mpMap = new Map();
+    mpMap = new Map(this);
 
     //Create Drawers. These are used by the Viewer
     mpFrameDrawer = new FrameDrawer(mpMap);
@@ -125,12 +125,23 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     System(strVocFile, strSettingsFile, sensor, string("None"), bUseViewer);
 }
 
+void System::SetMap(Map* pMap) {
+    mpMap = pMap;
+    mpTracker->SetMap(pMap);
+    mpLocalMapper->SetMap(pMap);
+    mpLoopCloser->SetMap(pMap);
+}
+
 void System::RegisterServer(MultiAgentServer* pServer) {
     mpServer = pServer;
 }
 
 MultiAgentServer* System::getServer() {
     return mpServer;
+}
+
+LoopClosing* System::GetLoopCloser() {
+    return mpLoopCloser;
 }
 
 LocalMapping* System::getLocalMapper() {

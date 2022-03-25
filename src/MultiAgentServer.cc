@@ -27,16 +27,9 @@ MultiAgentServer::MultiAgentServer(
     // Create the Multi-Map (set containing multiple maps)
     mpMultiMap = new MultiMap();
 
-    // Create MultiMapDrawer. This is used by the ServerViewer.
-    mpMultiMapDrawer = new MultiMapDrawer(mpMultiMap, strSettingsFile);
-
     // Initialize the Map Fusion thread and launch
     mpMapFusion = new MapFusion(this, mpMultiMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=ORB_SLAM2::MONOCULAR);
     mptMapFusion = new thread(&MapFusion::Run, mpMapFusion);
-
-    // Initialize the Viewer thread and launch
-    mpServerViewer = new ServerViewer(this, mpMultiMapDrawer, mSensor, string(strSettingsFile));
-    mptServerViewer = new thread(&ServerViewer::Run, mpServerViewer);
 }
 
 void MultiAgentServer::RegisterClient(System* client) {

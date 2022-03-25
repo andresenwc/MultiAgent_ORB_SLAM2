@@ -47,6 +47,8 @@ public:
 
     void SetTracker(Tracking* pTracker);
 
+    void SetMap(Map* pMap);
+
     // Main function
     void Run();
 

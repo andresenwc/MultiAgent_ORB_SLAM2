@@ -163,6 +163,10 @@ void Tracking::SetViewer(Viewer *pViewer)
     mpViewer=pViewer;
 }
 
+void Tracking::SetMap(Map* pMap) {
+    mpMap = pMap;
+}
+
 
 cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp)
 {
@@ -1195,7 +1199,12 @@ void Tracking::SearchLocalPoints()
 void Tracking::UpdateLocalMap()
 {
     // This is for visualization
-    mpMap->SetReferenceMapPoints(mvpLocalMapPoints);
+    if (mpMap->IsMerged()) {
+        mpMap->SetReferenceMapPoints(mpSystem, mvpLocalMapPoints);
+    }
+    else {
+        mpMap->SetReferenceMapPoints(mvpLocalMapPoints);
+    }
 
     // Update
     UpdateLocalKeyFrames();

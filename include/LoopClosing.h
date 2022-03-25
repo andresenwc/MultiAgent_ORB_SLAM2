@@ -40,6 +40,7 @@ class Tracking;
 class LocalMapping;
 class KeyFrameDatabase;
 class System;
+class Map;
 
 
 class LoopClosing
@@ -58,8 +59,12 @@ public:
 
     void SetLocalMapper(LocalMapping* pLocalMapper);
 
+    void SetMap(Map* pMap);
+
     // Main function
     void Run();
+
+    void AddKFsToDB(std::vector<KeyFrame*> vpKFs);
 
     void InsertKeyFrame(KeyFrame *pKF);
 

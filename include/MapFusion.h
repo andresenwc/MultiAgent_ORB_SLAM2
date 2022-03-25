@@ -41,6 +41,7 @@ class LocalMapping;
 class KeyFrameDatabase;
 class MultiMap;
 class KeyFrame;
+class MultiAgentServer;
 
 
 class MapFusion

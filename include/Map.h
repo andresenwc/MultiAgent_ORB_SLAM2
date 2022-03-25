@@ -34,17 +34,25 @@ namespace ORB_SLAM2
 
 class MapPoint;
 class KeyFrame;
+class System;
 
 class Map
 {
 public:
     Map();
+    Map(System* pSystem);
+
+    System* GetSystem();
+
+    bool IsMerged();
+    void SetIsMerged();
 
     void AddKeyFrame(KeyFrame* pKF);
     void AddMapPoint(MapPoint* pMP);
     void EraseMapPoint(MapPoint* pMP);
     void EraseKeyFrame(KeyFrame* pKF);
     void SetReferenceMapPoints(const std::vector<MapPoint*> &vpMPs);
+    void SetReferenceMapPoints(System* pSystem, const std::vector<MapPoint*> &vpMPs);
     void InformNewBigChange();
     int GetLastBigChangeIdx();
 
@@ -67,10 +75,15 @@ public:
     std::mutex mMutexPointCreation;
 
 protected:
+    System* mpSystem;
+
+    bool mbIsMerged;
+
     std::set<MapPoint*> mspMapPoints;
     std::set<KeyFrame*> mspKeyFrames;
 
     std::vector<MapPoint*> mvpReferenceMapPoints;
+    std::map<System*, std::vector<MapPoint*>> mmvpReferenceMapPoints;
 
     long unsigned int mnMaxKFid;
 

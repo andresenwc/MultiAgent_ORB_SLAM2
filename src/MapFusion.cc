@@ -204,6 +204,7 @@ bool MapFusion::DetectFusionCandidates()
     }
 
     // Update Covisibility Consistent Groups
+    // Used in processing of future KeyFrames
     mvConsistentGroups = vCurrentConsistentGroups;
 
 
@@ -398,6 +399,10 @@ bool MapFusion::ComputeSim3() {
 void MapFusion::FuseMaps() {
     cout << "\tFusing Maps!" << endl;
 
+    /**********
+    ** Setup **
+    **********/
+
     // Pause local mapping while fusion is done
     mpServer->RequestStopMapping();
 
@@ -412,7 +417,7 @@ void MapFusion::FuseMaps() {
         }
     }
 
-    // Some setup vars
+    // Some vars that we will use
     Map* pCurrentMap = mpCurrentKF->GetMap();
     Map* pMatchedMap = mpMatchedKF->GetMap();
 
@@ -422,18 +427,18 @@ void MapFusion::FuseMaps() {
     std::vector<KeyFrame*> vpMatchedMapKFs = pMatchedMap->GetAllKeyFrames();
     std::vector<MapPoint*> vpMatchedMapMPs = pMatchedMap->GetAllMapPoints();
 
-    // Add the raw KFs and MPs to the map
+    // Add the raw KFs and MPs to the merge map
     {
         // TODO: Add map lock
 
-        // We move KFs from current to matched
+        // Move KFs from current to matched
         for (auto pKFi : vpCurrentMapKFs) {
             pKFi->SetMap(pMatchedMap);
             pMatchedMap->AddKeyFrame(pKFi);
             pCurrentMap->EraseKeyFrame(pKFi);
         }
 
-        // We move MPs from current to matched
+        // Move MPs from current to matched
         for (auto pMPi : vpCurrentMapMPs) {
             pMPi->SetMap(pMatchedMap);
             pMatchedMap->AddMapPoint(pMPi);
@@ -441,9 +446,9 @@ void MapFusion::FuseMaps() {
         }
     }
 
-    /********************************
-    ** Perform Merge in Local Area **
-    ********************************/
+    /****************
+    ** Local Merge **
+    ****************/
 
     // Update current KF connections
     mpCurrentKF->UpdateConnections();
@@ -548,18 +553,17 @@ void MapFusion::FuseMaps() {
             pKFi->UpdateConnections();
         }
 
-        // Start Loop Fusion
-        // Update matched map points and replace if duplicated
-        for(size_t i=0; i<mvpCurrentMatchedPoints.size(); i++)
-        {
-            if(mvpCurrentMatchedPoints[i])
-            {
+        // Start Map Fusion
+        // Update matched MPs and replace if duplicated
+        for (size_t i = 0; i < mvpCurrentMatchedPoints.size(); i++) {
+            if (mvpCurrentMatchedPoints[i]) {
                 MapPoint* pLoopMP = mvpCurrentMatchedPoints[i];
                 MapPoint* pCurMP = mpCurrentKF->GetMapPoint(i);
-                if(pCurMP)
+
+                if (pCurMP) {
                     pCurMP->Replace(pLoopMP);
-                else
-                {
+                }
+                else {
                     mpCurrentKF->AddMapPoint(pLoopMP,i);
                     pLoopMP->AddObservation(mpCurrentKF,i);
                     pLoopMP->ComputeDistinctiveDescriptors();
@@ -573,33 +577,54 @@ void MapFusion::FuseMaps() {
     // Fuse duplications.
     SearchAndFuse(CorrectedSim3);
 
-    /*************************
-    ** Perform Global Merge **
-    *************************/
-
-    // After the MapPoint fusion, new links in the covisibility graph will appear attaching both sides of the loop
+    // After the MapPoint fusion, new links in the covisibility graph will
+    // appear attaching both sides of the loop. We want to discover and identify
+    // these new links.
     map<KeyFrame*, set<KeyFrame*> > LoopConnections;
 
-    for(vector<KeyFrame*>::iterator vit=mvpCurrentConnectedKFs.begin(), vend=mvpCurrentConnectedKFs.end(); vit!=vend; vit++)
-    {
-        KeyFrame* pKFi = *vit;
+    for (auto pKFi : mvpCurrentConnectedKFs) {
+
+        // Covisibles before merge
         vector<KeyFrame*> vpPreviousNeighbors = pKFi->GetVectorCovisibleKeyFrames();
 
-        // Update connections. Detect new links.
+        // Discover new connections
         pKFi->UpdateConnections();
+
+        // Initialize the set with all covisible KFs
         LoopConnections[pKFi]=pKFi->GetConnectedKeyFrames();
-        for(vector<KeyFrame*>::iterator vit_prev=vpPreviousNeighbors.begin(), vend_prev=vpPreviousNeighbors.end(); vit_prev!=vend_prev; vit_prev++)
+
+        // Eliminate covisibility and neighborhood KFs from before the merge,
+        // leaving a vector of only the covisibility connections established by
+        // the merge
+        for (auto pKFprev : vpPreviousNeighbors)
         {
-            LoopConnections[pKFi].erase(*vit_prev);
+            LoopConnections[pKFi].erase(pKFprev);
         }
-        for(vector<KeyFrame*>::iterator vit2=mvpCurrentConnectedKFs.begin(), vend2=mvpCurrentConnectedKFs.end(); vit2!=vend2; vit2++)
+        for (auto pKFcurr : mvpCurrentConnectedKFs)
         {
-            LoopConnections[pKFi].erase(*vit2);
+            LoopConnections[pKFi].erase(pKFcurr);
         }
     }
 
-    // Optimize graph
+    /*****************
+    ** Global Merge **
+    *****************/
+
+    // Optimize graph, which propogates the correction outside of the local
+    // area into the rest of the map.
     Optimizer::OptimizeEssentialGraph(mpMatchedKF->GetMap(), mpMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections, mbFixScale);
+
+    /************
+    ** Cleanup **
+    ************/
+
+    // Make the SLAM systems point to the same map.
+    pCurrentMap->GetSystem()->SetMap(pMatchedMap);
+    pMatchedMap->SetIsMerged();
+
+    // Inform local loop closers of new keyframes
+    pCurrentMap->GetSystem()->GetLoopCloser()->AddKFsToDB(vpMatchedMapKFs);
+    pMatchedMap->GetSystem()->GetLoopCloser()->AddKFsToDB(vpCurrentMapKFs);
 
     // Inform server of large map changes
     mpServer->InformNewBigChange();

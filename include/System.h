@@ -67,9 +67,14 @@ public:
 
     System(const string &strVocFile, const string &strSettingsFile, const int sensor, const bool bUseViewer = true);
 
+    // change the map, happens on map fusion
+    void SetMap(Map* pMap);
+
     // Register a MultiAgentServer with the SLAM System for Multi-Agent SLAM
     void RegisterServer(MultiAgentServer* pServer);
     MultiAgentServer* getServer();
+
+    LoopClosing* GetLoopCloser();
 
     LocalMapping* getLocalMapper();
 

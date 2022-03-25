@@ -25,8 +25,24 @@
 namespace ORB_SLAM2
 {
 
-Map::Map():mnMaxKFid(0),mnBigChangeIdx(0)
+Map::Map(): mnMaxKFid(0), mnBigChangeIdx(0), mbIsMerged(false)
 {
+}
+
+Map::Map(System* pSystem): mpSystem(pSystem), mnMaxKFid(0), mnBigChangeIdx(0), mbIsMerged(false)
+{
+}
+
+System* Map::GetSystem() {
+    return mpSystem;
+}
+
+bool Map::IsMerged() {
+    return mbIsMerged;
+}
+
+void Map::SetIsMerged() {
+    mbIsMerged = true;
 }
 
 void Map::AddKeyFrame(KeyFrame *pKF)
@@ -65,6 +81,12 @@ void Map::SetReferenceMapPoints(const vector<MapPoint *> &vpMPs)
 {
     unique_lock<mutex> lock(mMutexMap);
     mvpReferenceMapPoints = vpMPs;
+}
+
+void Map::SetReferenceMapPoints(System* pSystem, const vector<MapPoint *> &vpMPs)
+{
+    unique_lock<mutex> lock(mMutexMap);
+    mmvpReferenceMapPoints[pSystem] = vpMPs;
 }
 
 void Map::InformNewBigChange()
@@ -106,7 +128,18 @@ long unsigned int Map::KeyFramesInMap()
 vector<MapPoint*> Map::GetReferenceMapPoints()
 {
     unique_lock<mutex> lock(mMutexMap);
-    return mvpReferenceMapPoints;
+    if (mbIsMerged) {
+        std::vector<MapPoint*> vpReferenceMapPoints;
+        for (auto pair : mmvpReferenceMapPoints) {
+            std::vector<MapPoint*> vpRMPi = pair.second;
+            vpReferenceMapPoints.insert(vpReferenceMapPoints.end(),
+                vpRMPi.begin(), vpRMPi.end());
+        }
+        return vpReferenceMapPoints;
+    }
+    else {
+        return mvpReferenceMapPoints;
+    }
 }
 
 long unsigned int Map::GetMaxKFid()

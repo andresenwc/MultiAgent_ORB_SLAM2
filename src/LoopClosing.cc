@@ -55,6 +55,9 @@ void LoopClosing::SetLocalMapper(LocalMapping *pLocalMapper)
     mpLocalMapper=pLocalMapper;
 }
 
+void LoopClosing::SetMap(Map* pMap) {
+    mpMap = pMap;
+}
 
 void LoopClosing::Run()
 {
@@ -93,6 +96,12 @@ void LoopClosing::Run()
     }
 
     SetFinish();
+}
+
+void LoopClosing::AddKFsToDB(std::vector<KeyFrame*> vpKFs) {
+    for (auto pKFi : vpKFs) {
+        mpKeyFrameDB->add(pKFi);
+    }
 }
 
 void LoopClosing::InsertKeyFrame(KeyFrame *pKF)

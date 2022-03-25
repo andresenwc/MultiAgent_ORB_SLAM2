@@ -9,8 +9,6 @@
 #include "Defines.h"
 #include "ORBVocabulary.h"
 #include "KeyFrameDatabase.h"
-#include "ServerViewer.h"
-#include "MultiMapDrawer.h"
 #include "MultiMap.h"
 #include "MapFusion.h"
 #include "System.h"
@@ -43,13 +41,8 @@ class MultiAgentServer {
 
         MultiMap* mpMultiMap;
 
-        MultiMapDrawer* mpMultiMapDrawer;
-
         MapFusion* mpMapFusion;
         std::thread* mptMapFusion;
-
-        ServerViewer* mpServerViewer;
-        std::thread* mptServerViewer;
 
         std::vector<System*> clients;
 };
