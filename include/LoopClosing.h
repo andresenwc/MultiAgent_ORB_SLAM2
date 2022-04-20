@@ -66,6 +66,9 @@ public:
 
     void AddKFsToDB(std::vector<KeyFrame*> vpKFs);
 
+    KeyFrameDatabase* GetKFDB();
+    void SetKFDB(KeyFrameDatabase* pKeyFrameDB);
+
     void InsertKeyFrame(KeyFrame *pKF);
 
     void RequestReset();

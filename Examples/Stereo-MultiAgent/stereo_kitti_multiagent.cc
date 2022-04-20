@@ -133,6 +133,9 @@ int main(int argc, char **argv)
             usleep((T-ttrack)*1e6);
     }
 
+    cout << "Press any button to continue..." << endl;
+    cin.get();
+
     // Stop all threads
     SLAM1.Shutdown();
     SLAM2.Shutdown();

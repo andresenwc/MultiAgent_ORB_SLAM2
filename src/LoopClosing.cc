@@ -104,6 +104,14 @@ void LoopClosing::AddKFsToDB(std::vector<KeyFrame*> vpKFs) {
     }
 }
 
+KeyFrameDatabase* LoopClosing::GetKFDB() {
+    return mpKeyFrameDB;
+}
+
+void LoopClosing::SetKFDB(KeyFrameDatabase* pKeyFrameDB) {
+    mpKeyFrameDB = pKeyFrameDB;
+}
+
 void LoopClosing::InsertKeyFrame(KeyFrame *pKF)
 {
     unique_lock<mutex> lock(mMutexLoopQueue);

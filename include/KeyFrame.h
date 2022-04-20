@@ -148,6 +148,9 @@ public:
     long unsigned int mnLoopQuery;
     int mnLoopWords;
     float mLoopScore;
+    long unsigned int mnCovisQuery;
+    int mnCovisWords;
+    float mCovisScore;
     long unsigned int mnRelocQuery;
     int mnRelocWords;
     float mRelocScore;

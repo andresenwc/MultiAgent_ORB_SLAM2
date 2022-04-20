@@ -54,6 +54,9 @@ public:
    // Loop Detection
    std::vector<KeyFrame *> DetectLoopCandidates(KeyFrame* pKF, float minScore);
 
+   // Covisibility Detection (for map fusions)
+   std::vector<KeyFrame*> DetectCovisibilityCandidates(KeyFrame* pKF, float minScore, vector<KeyFrame*> vpKFsToIgnore);
+
    // Relocalization
    std::vector<KeyFrame*> DetectRelocalizationCandidates(Frame* F);
   std::vector<list<KeyFrame*> > mvInvertedFile;

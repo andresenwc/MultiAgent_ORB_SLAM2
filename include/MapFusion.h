@@ -88,6 +88,8 @@ protected:
 
     void SearchAndFuse(const KeyFrameAndPose &CorrectedPoseMap);
 
+    void CovisibilityDiscovery(std::vector<KeyFrame*> vpCurrentMapKFs, Map* pMatchedMap, KeyFrameDatabase* pMatchedKFDB);
+
     MultiAgentServer* mpServer;
 
     MultiMap* mpMultiMap;
@@ -119,6 +121,9 @@ protected:
 
     // Fix scale in the stereo/RGB-D case
     bool mbFixScale;
+
+    // Variables related to Global Covisibility Correction
+    std::thread* mpThreadGCC;
 
     // Variables related to GBA
     std::mutex mMutexGBA;

@@ -31,6 +31,7 @@
 #include<mutex>
 #include<thread>
 
+#include<chrono>
 
 namespace ORB_SLAM2
 {
@@ -93,6 +94,8 @@ bool MapFusion::CheckNewKeyFrames()
 
 bool MapFusion::DetectFusionCandidates()
 {
+    // YO THIS IS BUSTED
+
     {
         unique_lock<mutex> lock(mMutexFusionQueue);
         mpCurrentKF = mlpFusionKeyFrameQueue.front();
@@ -446,9 +449,9 @@ void MapFusion::FuseMaps() {
         }
     }
 
-    /****************
-    ** Local Merge **
-    ****************/
+    /**************
+    ** Map Merge **
+    **************/
 
     // Update current KF connections
     mpCurrentKF->UpdateConnections();
@@ -472,11 +475,16 @@ void MapFusion::FuseMaps() {
         cv::Mat Twc = mpCurrentKF->GetPoseInverse();
 
         // Complete CorrectedSim3 and NonCorrectedSim3 for all connected KFs
-        for (auto pKFi : mvpCurrentConnectedKFs) {
+        for (auto pKFi : vpCurrentMapKFs) {
+            
+            // CALCULATE THE CORRECTED POSES
 
             // Pose of i relative to (current) world
             cv::Mat Tiw = pKFi->GetPose();
 
+            g2o::Sim3 g2oCorrectedSiw;
+
+            // Calculate corrected pose for pKFi
             if (pKFi != mpCurrentKF) {
                 // Pose of i relative to current
                 cv::Mat Tic = Tiw*Twc;
@@ -488,10 +496,10 @@ void MapFusion::FuseMaps() {
                 g2o::Sim3 g2oSic(Converter::toMatrix3d(Ric),
                     Converter::toVector3d(tic), 1.0);
 
-                g2o::Sim3 g2oCorrectedSiw = g2oSic*mg2oScw;
-
-                // Corrected Sim3
-                CorrectedSim3[pKFi]=g2oCorrectedSiw;
+                g2oCorrectedSiw = g2oSic*mg2oScw;
+            }
+            else {
+                g2oCorrectedSiw = mg2oScw;
             }
 
             // Rotation matrix of i relative to (current) world
@@ -503,17 +511,23 @@ void MapFusion::FuseMaps() {
             g2o::Sim3 g2oSiw(Converter::toMatrix3d(Riw),
                 Converter::toVector3d(tiw), 1.0);
 
-            // Uncorrected Sim3
-            NonCorrectedSim3[pKFi] = g2oSiw;
-        }
+            // if in local neighborhood, we want to store some information
+            // for future use
+            if (find(mvpCurrentConnectedKFs.begin(),
+                     mvpCurrentConnectedKFs.end(),
+                     pKFi)
+                != mvpCurrentConnectedKFs.end()) {
+                
+                // Store corrected Sim3
+                CorrectedSim3[pKFi] = g2oCorrectedSiw;
 
-        // Correct all KFs and MPs observed by the KF
-        for (auto KFPi : CorrectedSim3) {
-            KeyFrame* pKFi = KFPi.first;
-            g2o::Sim3 g2oCorrectedSiw = KFPi.second;
+                // Store uncorrected Sim3
+                NonCorrectedSim3[pKFi] = g2oSiw;
+            }
+
+            // APPLY THE CORRECTED POSES
+
             g2o::Sim3 g2oCorrectedSwi = g2oCorrectedSiw.inverse();
-
-            g2o::Sim3 g2oSiw = NonCorrectedSim3[pKFi];
 
             // Update MPs seen by this KF
             vector<MapPoint*> vpMPi = pKFi->GetMapPointMatches();
@@ -606,14 +620,6 @@ void MapFusion::FuseMaps() {
         }
     }
 
-    /*****************
-    ** Global Merge **
-    *****************/
-
-    // Optimize graph, which propogates the correction outside of the local
-    // area into the rest of the map.
-    Optimizer::OptimizeEssentialGraph(mpMatchedKF->GetMap(), mpMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections, mbFixScale);
-
     /************
     ** Cleanup **
     ************/
@@ -622,15 +628,24 @@ void MapFusion::FuseMaps() {
     pCurrentMap->GetSystem()->SetMap(pMatchedMap);
     pMatchedMap->SetIsMerged();
 
-    // Inform local loop closers of new keyframes
-    pCurrentMap->GetSystem()->GetLoopCloser()->AddKFsToDB(vpMatchedMapKFs);
+    // Merge the loop closure KFDBs
+    KeyFrameDatabase* pMatchedKFDB =
+        pMatchedMap->GetSystem()->GetLoopCloser()->GetKFDB();
     pMatchedMap->GetSystem()->GetLoopCloser()->AddKFsToDB(vpCurrentMapKFs);
+    pCurrentMap->GetSystem()->GetLoopCloser()->SetKFDB(pMatchedKFDB);
 
     // Inform server of large map changes
     mpServer->InformNewBigChange();
 
     // Release local mapping
     mpServer->RequestReleaseMapping();
+
+    /***********************************
+    ** Global Covisibility Correction **
+    ***********************************/
+
+    mpThreadGCC = new thread(&MapFusion::CovisibilityDiscovery,
+        this, vpCurrentMapKFs, pMatchedMap, pMatchedKFDB);
 }
 
 void MapFusion::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap)
@@ -659,6 +674,129 @@ void MapFusion::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap)
             }
         }
     }
+}
+
+void MapFusion::CovisibilityDiscovery(
+    std::vector<KeyFrame*> vpCurrentMapKFs, Map* pMatchedMap,
+    KeyFrameDatabase* pMatchedKFDB) {
+
+    cout << "\tCovisibility Discovery!" << endl;
+    cout << "\t\tStarting Correction!" << endl;
+
+    // ORBmatcher for matching MPs between KFs
+    ORBmatcher matcher(0.75, true);
+
+    // Detect, find, and fuse MapPoints
+    for (auto pCurKFi : vpCurrentMapKFs) {
+
+        /***********************************
+        ** Detect Covisibility Candidates **
+        ***********************************/
+
+        // Calculate minimum similarity score for the query
+        const vector<KeyFrame*> vpConnectedKFs =
+            pCurKFi->GetVectorCovisibleKeyFrames();
+        const DBoW2::BowVector &CurrentBowVec = pCurKFi->mBowVec;
+        float minScore = 1;
+        for (auto pKFi : vpConnectedKFs) {
+            // Skip bad KFs
+            if (pKFi->isBad())
+                continue;
+            
+            // Compute score, replace minScore if new min
+            const DBoW2::BowVector &BowVec = pKFi->mBowVec;
+            float score = mpORBVocabulary->score(CurrentBowVec, BowVec);
+            if (score < minScore)
+                minScore = score;
+        }
+
+        // Query the DB for covisbility candidates imposing the min score
+        vector<KeyFrame*> vpCandidateKFs = pMatchedKFDB->
+            DetectCovisibilityCandidates(pCurKFi, minScore, vpCurrentMapKFs);
+        
+        // If there are no candidates, continue
+        if (vpCandidateKFs.empty())
+            continue;
+
+        /***********************************
+        ** Narrow Covisibility Candidates **
+        ***********************************/
+
+        size_t nInitialCandidates = vpCandidateKFs.size();
+
+        vector<vector<MapPoint*>> vvpMapPointMatches;
+        vvpMapPointMatches.resize(nInitialCandidates);
+
+        vector<bool> vbDiscarded;
+        vbDiscarded.resize(nInitialCandidates);
+        
+        // SearchByBoW
+        // ORB matches
+        for (size_t i = 0; i < nInitialCandidates; i++) {
+            KeyFrame* pKFi = vpCandidateKFs[i];
+
+            if (pKFi->isBad()) {
+                vbDiscarded[i] = true;
+                continue;
+            }
+
+            int nmatches =
+                matcher.SearchByBoW(pCurKFi, pKFi, vvpMapPointMatches[i]);
+            
+            // Discard matches with too few ORB matches
+            if (nmatches < 15) {
+                vbDiscarded[i] = true;
+                continue;
+            }
+        }
+
+        /******************************
+        ** Attempt to Fuse MapPoints **
+        ******************************/
+
+       cout << "\t\tFused: ";
+
+        // For each candidate KF attempt to match and fuse MPs in the
+        // neighborhood of the candidate KF with MPs in the current KF
+        for (size_t i = 0; i < nInitialCandidates; i++) {
+            if (vbDiscarded[i])
+                continue;
+            
+            KeyFrame* pKFi = vpCandidateKFs[i];
+            vector<MapPoint*> vpCandidateMPs = vvpMapPointMatches[i];
+
+            vector<KeyFrame*> vpCovisConnectedKFs =
+                pKFi->GetVectorCovisibleKeyFrames();
+            vpCovisConnectedKFs.push_back(pKFi);
+
+            vector<MapPoint*> vpCovisMPs;
+
+            for (auto pKFj : vpCovisConnectedKFs) {
+                for (auto pMPj : pKFj->GetMapPointMatches()) {
+                    vpCovisMPs.push_back(pMPj);
+                }
+            }
+
+            int nmatches = matcher.Fuse(pCurKFi, vpCovisMPs);
+
+            cout << ", " << nmatches;
+        }
+
+        cout << endl;
+
+        /***********************
+        ** Update Connections **
+        ***********************/
+
+        pCurKFi->UpdateConnections();
+    }
+
+    // Make sure all connections are updated
+    for (auto pKFi : vpCurrentMapKFs) {
+        pKFi->UpdateConnections();
+    }
+
+    cout << "\t\tCorrection completed!" << endl;
 }
 
 bool MapFusion::isRunningGBA() {

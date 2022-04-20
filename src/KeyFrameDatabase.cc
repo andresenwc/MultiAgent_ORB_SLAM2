@@ -196,6 +196,117 @@ vector<KeyFrame*> KeyFrameDatabase::DetectLoopCandidates(KeyFrame* pKF, float mi
     return vpLoopCandidates;
 }
 
+vector<KeyFrame*> KeyFrameDatabase::DetectCovisibilityCandidates(
+    KeyFrame* pKF, float minScore, vector<KeyFrame*> vpKFsToIgnore) {
+
+    // Convert ignore vector to a set
+    set<KeyFrame*> spKFsToIgnore(vpKFsToIgnore.begin(), vpKFsToIgnore.end());
+
+    // List for KFs sharing a word with pKF
+    list<KeyFrame*> lpKFsSharingWords;
+
+    // Search all KFs that share a word with the current KF
+    {
+        unique_lock<mutex> lock(mMutex);
+
+        // for each word in pKF
+        for (auto pair : pKF->mBowVec) {
+            // list of KFs sharing this word with pKF
+            list<KeyFrame*> &lpKFs = mvInvertedFile[pair.first];
+
+            // track the total number of shared words
+            for (auto pKFi : lpKFs) {
+                // Skip KFs from KFsToIgnore
+                if (!spKFsToIgnore.count(pKFi)) {
+                    if (pKFi->mnCovisQuery != pKF->mnId) {
+                        pKFi->mnCovisWords = 0;
+                        pKFi->mnCovisQuery = pKF->mnId;
+                        lpKFsSharingWords.push_back(pKFi);
+                    }
+                    pKFi->mnCovisWords++;
+                }
+            }
+        }
+    }
+
+    // Return if no KF shares words
+    if (lpKFsSharingWords.empty())
+        return vector<KeyFrame*>();
+
+    // Only compare against those KFs that share enough words
+    int maxCommonWords = 0;
+    for (auto pKFi : lpKFsSharingWords) {
+        if (pKFi->mnCovisWords > maxCommonWords)
+            maxCommonWords = pKFi->mnCovisWords;
+    }
+    int minCommonWords = maxCommonWords*0.8f;
+
+    // Discard matches with too few common words.
+    // Discard matches with score < minScore.
+    list<pair<float, KeyFrame*>> lScoreAndMatch;
+    for (auto pKFi : lpKFsSharingWords) {
+        if (pKFi->mnCovisWords > minCommonWords) {
+            // similarity score
+            float si = mpVoc->score(pKF->mBowVec, pKFi->mBowVec);
+            // add if larger than minScore
+            if (si >= minScore)
+                lScoreAndMatch.push_back(make_pair(si, pKFi));
+        }
+    }
+
+    if (lScoreAndMatch.empty())
+        return vector<KeyFrame*>();
+    
+    list<pair<float, KeyFrame*>> lAccScoreAndMatch;
+    float bestAccScore = minScore;
+
+    // Accumulate score by covisibility
+    for (auto scoreAndMatch : lScoreAndMatch) {
+        KeyFrame* pKFi = scoreAndMatch.second;
+        vector<KeyFrame*> vpNeighs = pKFi->GetBestCovisibilityKeyFrames(10);
+
+        float bestScore = scoreAndMatch.first;
+        float accScore = scoreAndMatch.first;
+        KeyFrame* pBestKF = pKFi;
+
+        for (auto pKFj : vpNeighs) {
+            if (pKFj->mnCovisQuery == pKF->mnId
+                && pKFj->mnCovisWords > minCommonWords) {
+                accScore += pKFj->mCovisScore;
+                if (pKFj->mCovisScore > bestScore) {
+                    pBestKF = pKFj;
+                    bestScore = pKFj->mCovisScore;
+                }
+            }
+        }
+
+        lAccScoreAndMatch.push_back(make_pair(accScore, pBestKF));
+
+        if (accScore > bestAccScore)
+            bestAccScore = accScore;
+    }
+
+    // Return KFs with an accScore > 0.75*bestAccScore
+    float minScoreToRetain = 0.75f*bestAccScore;
+
+    set<KeyFrame*> spAlreadyAddedKF;
+
+    vector<KeyFrame*> vpCovisCandidates;
+    vpCovisCandidates.reserve(lAccScoreAndMatch.size());
+
+    for (auto accScoreAndMatch : lAccScoreAndMatch) {
+        if (accScoreAndMatch.first > minScoreToRetain) {
+            KeyFrame* pKFi = accScoreAndMatch.second;
+            if (!spAlreadyAddedKF.count(pKFi)) {
+                vpCovisCandidates.push_back(pKFi);
+                spAlreadyAddedKF.insert(pKFi);
+            }
+        }
+    }
+
+    return vpCovisCandidates;
+}
+
 vector<KeyFrame*> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F)
 {
     list<KeyFrame*> lKFsSharingWords;
