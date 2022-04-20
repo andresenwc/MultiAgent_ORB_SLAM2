@@ -640,9 +640,9 @@ void MapFusion::FuseMaps() {
     // Release local mapping
     mpServer->RequestReleaseMapping();
 
-    /***********************************
-    ** Global Covisibility Correction **
-    ***********************************/
+    /***************************
+    ** Covisibility Discovery **
+    ***************************/
 
     mpThreadGCC = new thread(&MapFusion::CovisibilityDiscovery,
         this, vpCurrentMapKFs, pMatchedMap, pMatchedKFDB);
@@ -681,7 +681,11 @@ void MapFusion::CovisibilityDiscovery(
     KeyFrameDatabase* pMatchedKFDB) {
 
     cout << "\tCovisibility Discovery!" << endl;
-    cout << "\t\tStarting Correction!" << endl;
+    cout << "\t\tStarting Discovery!" << endl;
+
+    cout << "\t\tFor KF pairs where MP fusion occurred:" << endl;
+
+    vector<int> vnMatches;
 
     // ORBmatcher for matching MPs between KFs
     ORBmatcher matcher(0.75, true);
@@ -754,8 +758,6 @@ void MapFusion::CovisibilityDiscovery(
         ** Attempt to Fuse MapPoints **
         ******************************/
 
-       cout << "\t\tFused: ";
-
         // For each candidate KF attempt to match and fuse MPs in the
         // neighborhood of the candidate KF with MPs in the current KF
         for (size_t i = 0; i < nInitialCandidates; i++) {
@@ -777,12 +779,12 @@ void MapFusion::CovisibilityDiscovery(
                 }
             }
 
-            int nmatches = matcher.Fuse(pCurKFi, vpCovisMPs);
+            int nMatches = matcher.Fuse(pCurKFi, vpCovisMPs);
 
-            cout << ", " << nmatches;
+            if (nMatches) {
+                vnMatches.push_back(nMatches);
+            }
         }
-
-        cout << endl;
 
         /***********************
         ** Update Connections **
@@ -796,7 +798,24 @@ void MapFusion::CovisibilityDiscovery(
         pKFi->UpdateConnections();
     }
 
-    cout << "\t\tCorrection completed!" << endl;
+
+    // Some statistics about the fused MPs per KF pair
+    sort(vnMatches.begin(), vnMatches.end());
+    int totalFusions = vnMatches.size();
+
+    int median = vnMatches[totalFusions/2];
+
+    double sum = accumulate(vnMatches.begin(), vnMatches.end(), 0.0);
+    double mean = sum / totalFusions;
+
+    double sq_sum = inner_product(vnMatches.begin(), vnMatches.end(), vnMatches.begin(), 0.0);
+    double stdev = sqrt(sq_sum/totalFusions - mean*mean);
+
+    cout << "\t\t\tMean fused MPs: " << mean << endl;
+    cout << "\t\t\tStdev fused MPs: " << stdev << endl;
+    cout << "\t\t\tMedian fused MPs: " << median << endl;
+
+    cout << "\t\tDiscovery completed!" << endl;
 }
 
 bool MapFusion::isRunningGBA() {
