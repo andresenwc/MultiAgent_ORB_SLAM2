@@ -125,11 +125,30 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     System(strVocFile, strSettingsFile, sensor, string("None"), bUseViewer);
 }
 
+Map* System::GetMap() {
+    return mpMap;
+}
+
 void System::SetMap(Map* pMap) {
     mpMap = pMap;
     mpTracker->SetMap(pMap);
     mpLocalMapper->SetMap(pMap);
     mpLoopCloser->SetMap(pMap);
+}
+
+KeyFrameDatabase* System::GetKeyFrameDatabase() {
+    return mpKeyFrameDatabase;
+}
+
+void System::SetKeyFrameDatabase(KeyFrameDatabase* pKeyFrameDatabase) {
+    mpKeyFrameDatabase = pKeyFrameDatabase;
+    mpTracker->SetKeyFrameDatabase(pKeyFrameDatabase);
+    mpLoopCloser->SetKeyFrameDatabase(pKeyFrameDatabase);
+}
+
+void System::AddKFsToDB(std::vector<KeyFrame*> vpKFs) {
+    for (auto pKFi : vpKFs)
+        mpKeyFrameDatabase->add(pKFi);
 }
 
 void System::RegisterServer(MultiAgentServer* pServer) {

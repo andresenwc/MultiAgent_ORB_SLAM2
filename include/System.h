@@ -68,7 +68,13 @@ public:
     System(const string &strVocFile, const string &strSettingsFile, const int sensor, const bool bUseViewer = true);
 
     // change the map, happens on map fusion
+    Map* GetMap();
     void SetMap(Map* pMap);
+    
+    // change the KFDB, happens on map fusion
+    KeyFrameDatabase* GetKeyFrameDatabase();
+    void SetKeyFrameDatabase(KeyFrameDatabase* pKeyFrameDatabase);
+    void AddKFsToDB(std::vector<KeyFrame*> vpKFs);
 
     // Register a MultiAgentServer with the SLAM System for Multi-Agent SLAM
     void RegisterServer(MultiAgentServer* pServer);

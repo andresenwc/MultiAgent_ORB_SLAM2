@@ -40,7 +40,8 @@ MapFusion::MapFusion(MultiAgentServer* pServer, MultiMap *pMultiMap, KeyFrameDat
     mpServer(pServer), mbResetRequested(false), mbFinishRequested(false),
     mbFinished(true), mpMultiMap(pMultiMap), mpKeyFrameDB(pDB),
     mpORBVocabulary(pVoc), mbFixScale(bFixScale), mpMatchedKF(NULL),
-    mbRunningGBA(false), mbFinishedGBA(true), mbStopGBA(false), mpThreadGBA(NULL)
+    mbRunningGBA(false), mbFinishedGBA(true), mbStopGBA(false),
+    mpThreadGBA(NULL), mpCurrentSystem(NULL), mpMatchedSystem(NULL)
     // mLastLoopKFid(0), 
     // mnFullBAIdx(0)
 {
@@ -94,15 +95,19 @@ bool MapFusion::CheckNewKeyFrames()
 
 bool MapFusion::DetectFusionCandidates()
 {
-    // YO THIS IS BUSTED
+    // YO THIS IS BUSTED (jk it's fixed now)
 
     {
         unique_lock<mutex> lock(mMutexFusionQueue);
         mpCurrentKF = mlpFusionKeyFrameQueue.front();
+        mpCurrentSystem = mpCurrentKF->GetSystem();
         mlpFusionKeyFrameQueue.pop_front();
         // Avoid that a keyframe can be erased while it is being process by this thread
         mpCurrentKF->SetNotErase();
     }
+
+    mvConsistentGroups = &mmvConsistentGroups[mpCurrentSystem];
+    mvpEnoughConsistentCandidates = &mmvpEnoughConsistentCandidates[mpCurrentSystem];
 
     // Compute reference BoW similarity score
     // This is the lowest score to a connected keyframe in the covisibility graph
@@ -123,16 +128,17 @@ bool MapFusion::DetectFusionCandidates()
             minScore = score;
     }
 
+    // TODO: ADD FUSION CANDIDATE DETECTION LOGIC
     // Query the database imposing the minimum score
     vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectLoopCandidates(mpCurrentKF, minScore);
 
     // Discard same-map fusion candidates
-    Map* pCurrentMap = mpCurrentKF->GetMap();
+    Map* pCurrentMap = mpCurrentKF->GetSystem()->GetMap();
     vpCandidateKFs.erase(
         std::remove_if(
             vpCandidateKFs.begin(), vpCandidateKFs.end(),       
             [pCurrentMap](KeyFrame* pCandidateKF) {
-                return pCurrentMap == pCandidateKF->GetMap();
+                return pCurrentMap == pCandidateKF->GetSystem()->GetMap();
             }
         ), vpCandidateKFs.end());
 
@@ -140,7 +146,7 @@ bool MapFusion::DetectFusionCandidates()
     if(vpCandidateKFs.empty())
     {
         mpKeyFrameDB->add(mpCurrentKF);
-        mvConsistentGroups.clear();
+        mvConsistentGroups->clear();
         mpCurrentKF->SetErase();
         return false;
     }
@@ -152,10 +158,12 @@ bool MapFusion::DetectFusionCandidates()
     // keyframe
     // We must detect a consistent loop in several consecutive keyframes to
     // accept it
-    mvpEnoughConsistentCandidates.clear();
+    mvpEnoughConsistentCandidates->clear();
+
+    // cout << vpCandidateKFs.size() << endl;
 
     vector<ConsistentGroup> vCurrentConsistentGroups;
-    vector<bool> vbConsistentGroup(mvConsistentGroups.size(),false);
+    vector<bool> vbConsistentGroup(mvConsistentGroups->size(),false);
     for(size_t i=0, iend=vpCandidateKFs.size(); i<iend; i++)
     {
         KeyFrame* pCandidateKF = vpCandidateKFs[i];
@@ -165,9 +173,11 @@ bool MapFusion::DetectFusionCandidates()
 
         bool bEnoughConsistent = false;
         bool bConsistentForSomeGroup = false;
-        for(size_t iG=0, iendG=mvConsistentGroups.size(); iG<iendG; iG++)
+        for(size_t iG=0, iendG=mvConsistentGroups->size(); iG<iendG; iG++)
         {
-            set<KeyFrame*> sPreviousGroup = mvConsistentGroups[iG].first;
+            set<KeyFrame*> sPreviousGroup = (*mvConsistentGroups)[iG].first;
+
+            // cout << sPreviousGroup.size() << endl;
 
             bool bConsistent = false;
             for(set<KeyFrame*>::iterator sit=spCandidateGroup.begin(), send=spCandidateGroup.end(); sit!=send;sit++)
@@ -182,7 +192,7 @@ bool MapFusion::DetectFusionCandidates()
 
             if(bConsistent)
             {
-                int nPreviousConsistency = mvConsistentGroups[iG].second;
+                int nPreviousConsistency = (*mvConsistentGroups)[iG].second;
                 int nCurrentConsistency = nPreviousConsistency + 1;
                 if(!vbConsistentGroup[iG])
                 {
@@ -192,7 +202,7 @@ bool MapFusion::DetectFusionCandidates()
                 }
                 if(nCurrentConsistency>=mnCovisibilityConsistencyTh && !bEnoughConsistent)
                 {
-                    mvpEnoughConsistentCandidates.push_back(pCandidateKF);
+                    mvpEnoughConsistentCandidates->push_back(pCandidateKF);
                     bEnoughConsistent=true; //this avoid to insert the same candidate more than once
                 }
             }
@@ -206,15 +216,17 @@ bool MapFusion::DetectFusionCandidates()
         }
     }
 
+    // cout << "vCCG.size() = " << vCurrentConsistentGroups.size() << endl;
+
     // Update Covisibility Consistent Groups
     // Used in processing of future KeyFrames
-    mvConsistentGroups = vCurrentConsistentGroups;
+    (*mvConsistentGroups) = vCurrentConsistentGroups;
 
 
     // Add Current Keyframe to database
     mpKeyFrameDB->add(mpCurrentKF);
 
-    if(mvpEnoughConsistentCandidates.empty())
+    if(mvpEnoughConsistentCandidates->empty())
     {
         mpCurrentKF->SetErase();
         return false;
@@ -232,7 +244,7 @@ bool MapFusion::DetectFusionCandidates()
 bool MapFusion::ComputeSim3() {
     // For each consistent loop candidate we try to compute a Sim3
 
-    const int nInitialCandidates = mvpEnoughConsistentCandidates.size();
+    const int nInitialCandidates = mvpEnoughConsistentCandidates->size();
 
     // We compute first ORB matches for each candidate
     // If enough matches are found, we setup a Sim3Solver
@@ -251,7 +263,7 @@ bool MapFusion::ComputeSim3() {
 
     for(int i=0; i<nInitialCandidates; i++)
     {
-        KeyFrame* pKF = mvpEnoughConsistentCandidates[i];
+        KeyFrame* pKF = (*mvpEnoughConsistentCandidates)[i];
 
         // avoid that local mapping erase it while it is being processed in this thread
         pKF->SetNotErase();
@@ -290,7 +302,7 @@ bool MapFusion::ComputeSim3() {
             if(vbDiscarded[i])
                 continue;
 
-            KeyFrame* pKF = mvpEnoughConsistentCandidates[i];
+            KeyFrame* pKF = (*mvpEnoughConsistentCandidates)[i];
 
             // Perform 5 Ransac Iterations
             vector<bool> vbInliers;
@@ -330,6 +342,7 @@ bool MapFusion::ComputeSim3() {
                 {
                     bMatch = true;
                     mpMatchedKF = pKF;
+                    mpMatchedSystem = pKF->GetSystem();
                     g2o::Sim3 gSmw(Converter::toMatrix3d(pKF->GetRotation()),Converter::toVector3d(pKF->GetTranslation()),1.0);
                     mg2oScw = gScm*gSmw;
                     mScw = Converter::toCvMat(mg2oScw);
@@ -344,7 +357,7 @@ bool MapFusion::ComputeSim3() {
     if(!bMatch)
     {
         for(int i=0; i<nInitialCandidates; i++)
-             mvpEnoughConsistentCandidates[i]->SetErase();
+             (*mvpEnoughConsistentCandidates)[i]->SetErase();
         mpCurrentKF->SetErase();
         return false;
     }
@@ -386,14 +399,14 @@ bool MapFusion::ComputeSim3() {
     {
         cout << "\tMatches confirmed and Sim3 calculated." << endl;
         for(int i=0; i<nInitialCandidates; i++)
-            if(mvpEnoughConsistentCandidates[i]!=mpMatchedKF)
-                mvpEnoughConsistentCandidates[i]->SetErase();
+            if((*mvpEnoughConsistentCandidates)[i]!=mpMatchedKF)
+                (*mvpEnoughConsistentCandidates)[i]->SetErase();
         return true;
     }
     else
     {
         for(int i=0; i<nInitialCandidates; i++)
-            mvpEnoughConsistentCandidates[i]->SetErase();
+            (*mvpEnoughConsistentCandidates)[i]->SetErase();
         mpCurrentKF->SetErase();
         return false;
     }
@@ -421,8 +434,8 @@ void MapFusion::FuseMaps() {
     }
 
     // Some vars that we will use
-    Map* pCurrentMap = mpCurrentKF->GetMap();
-    Map* pMatchedMap = mpMatchedKF->GetMap();
+    Map* pCurrentMap = mpCurrentSystem->GetMap();
+    Map* pMatchedMap = mpMatchedSystem->GetMap();
 
     std::vector<KeyFrame*> vpCurrentMapKFs = pCurrentMap->GetAllKeyFrames();
     std::vector<MapPoint*> vpCurrentMapMPs = pCurrentMap->GetAllMapPoints();
@@ -625,14 +638,13 @@ void MapFusion::FuseMaps() {
     ************/
 
     // Make the SLAM systems point to the same map.
-    pCurrentMap->GetSystem()->SetMap(pMatchedMap);
+    mpCurrentSystem->SetMap(pMatchedMap);
     pMatchedMap->SetIsMerged();
 
-    // Merge the loop closure KFDBs
-    KeyFrameDatabase* pMatchedKFDB =
-        pMatchedMap->GetSystem()->GetLoopCloser()->GetKFDB();
-    pMatchedMap->GetSystem()->GetLoopCloser()->AddKFsToDB(vpCurrentMapKFs);
-    pCurrentMap->GetSystem()->GetLoopCloser()->SetKFDB(pMatchedKFDB);
+    // Merge the KFDBs
+    KeyFrameDatabase* pMatchedKFDB = mpMatchedSystem->GetKeyFrameDatabase();
+    mpMatchedSystem->AddKFsToDB(vpCurrentMapKFs);
+    mpCurrentSystem->SetKeyFrameDatabase(pMatchedKFDB);
 
     // Inform server of large map changes
     mpServer->InformNewBigChange();

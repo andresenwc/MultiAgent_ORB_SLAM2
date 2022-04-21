@@ -63,11 +63,8 @@ public:
 
     // Main function
     void Run();
-
-    void AddKFsToDB(std::vector<KeyFrame*> vpKFs);
-
-    KeyFrameDatabase* GetKFDB();
-    void SetKFDB(KeyFrameDatabase* pKeyFrameDB);
+    
+    void SetKeyFrameDatabase(KeyFrameDatabase* pKeyFrameDB);
 
     void InsertKeyFrame(KeyFrame *pKF);
 

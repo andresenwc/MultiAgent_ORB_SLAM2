@@ -98,17 +98,7 @@ void LoopClosing::Run()
     SetFinish();
 }
 
-void LoopClosing::AddKFsToDB(std::vector<KeyFrame*> vpKFs) {
-    for (auto pKFi : vpKFs) {
-        mpKeyFrameDB->add(pKFi);
-    }
-}
-
-KeyFrameDatabase* LoopClosing::GetKFDB() {
-    return mpKeyFrameDB;
-}
-
-void LoopClosing::SetKFDB(KeyFrameDatabase* pKeyFrameDB) {
+void LoopClosing::SetKeyFrameDatabase(KeyFrameDatabase* pKeyFrameDB) {
     mpKeyFrameDB = pKeyFrameDB;
 }
 

@@ -67,6 +67,7 @@ public:
     void SetLoopClosing(LoopClosing* pLoopClosing);
     void SetViewer(Viewer* pViewer);
     void SetMap(Map* pMap);
+    void SetKeyFrameDatabase(KeyFrameDatabase* pKeyFrameDB);
 
     // Load new settings
     // The focal lenght should be similar or scale prediction will fail when projecting points

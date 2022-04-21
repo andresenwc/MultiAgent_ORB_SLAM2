@@ -39,15 +39,20 @@ class Map;
 class MapPoint;
 class Frame;
 class KeyFrameDatabase;
+class System;
 
 class KeyFrame
 {
 public:
-    KeyFrame(Frame &F, Map* pMap, KeyFrameDatabase* pKFDB);
+    KeyFrame(Frame &F, Map* pMap, KeyFrameDatabase* pKFDB, System* pSystem);
 
     Map* GetMap();
 
     void SetMap(Map* pMap);
+    
+    System* GetSystem();
+
+    void SetSystem(System* pSystem);
 
     // Pose functions
     void SetPose(const cv::Mat &Tcw);
@@ -234,6 +239,8 @@ protected:
     float mHalfBaseline; // Only for visualization
 
     Map* mpMap;
+
+    System* mpSystem;
 
     std::mutex mMutexPose;
     std::mutex mMutexConnections;

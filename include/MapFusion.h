@@ -42,6 +42,7 @@ class KeyFrameDatabase;
 class MultiMap;
 class KeyFrame;
 class MultiAgentServer;
+class System;
 
 
 class MapFusion
@@ -105,11 +106,15 @@ protected:
 
     // Fusion candidate detection variables (place recognition)
     KeyFrame* mpCurrentKF;
-    std::vector<ConsistentGroup> mvConsistentGroups;
-    std::vector<KeyFrame*> mvpEnoughConsistentCandidates;
+    System* mpCurrentSystem;
+    std::map<System*, std::vector<ConsistentGroup>> mmvConsistentGroups;
+    std::vector<ConsistentGroup>* mvConsistentGroups;
+    std::map<System*, std::vector<KeyFrame*>> mmvpEnoughConsistentCandidates;
+    std::vector<KeyFrame*>* mvpEnoughConsistentCandidates;
 
     // sim3 calculation variables
     KeyFrame* mpMatchedKF;
+    System* mpMatchedSystem;
     std::vector<MapPoint*> mvpCurrentMatchedPoints;
     std::vector<MapPoint*> mvpLoopMapPoints;
     cv::Mat mScw;
