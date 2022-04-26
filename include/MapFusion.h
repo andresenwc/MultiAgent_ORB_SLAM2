@@ -91,6 +91,8 @@ protected:
 
     void CovisibilityDiscovery(std::vector<KeyFrame*> vpCurrentMapKFs, Map* pMatchedMap, KeyFrameDatabase* pMatchedKFDB);
 
+    void RunGlobalBundleAdjustment(Map* pMatchedMap, unsigned long nFusionKF);
+
     MultiAgentServer* mpServer;
 
     MultiMap* mpMultiMap;
@@ -123,15 +125,15 @@ protected:
     // Map fusion variables
     std::vector<KeyFrame*> mvpCurrentConnectedKFs;
 
-
     // Fix scale in the stereo/RGB-D case
     bool mbFixScale;
 
-    // Variables related to Global Covisibility Correction
-    std::thread* mpThreadGCC;
+    // Variables related to covisibility discovery
+    std::thread* mpThreadCD;
 
     // Variables related to GBA
     std::mutex mMutexGBA;
+    int mnFullBAIdx;
     bool mbRunningGBA;
     bool mbFinishedGBA;
     bool mbStopGBA;

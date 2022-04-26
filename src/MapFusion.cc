@@ -41,9 +41,9 @@ MapFusion::MapFusion(MultiAgentServer* pServer, MultiMap *pMultiMap, KeyFrameDat
     mbFinished(true), mpMultiMap(pMultiMap), mpKeyFrameDB(pDB),
     mpORBVocabulary(pVoc), mbFixScale(bFixScale), mpMatchedKF(NULL),
     mbRunningGBA(false), mbFinishedGBA(true), mbStopGBA(false),
-    mpThreadGBA(NULL), mpCurrentSystem(NULL), mpMatchedSystem(NULL)
+    mpThreadGBA(NULL), mpCurrentSystem(NULL), mpMatchedSystem(NULL),
+    mnFullBAIdx(0)
     // mLastLoopKFid(0), 
-    // mnFullBAIdx(0)
 {
     mnCovisibilityConsistencyTh = 3;
 }
@@ -160,8 +160,6 @@ bool MapFusion::DetectFusionCandidates()
     // accept it
     mvpEnoughConsistentCandidates->clear();
 
-    // cout << vpCandidateKFs.size() << endl;
-
     vector<ConsistentGroup> vCurrentConsistentGroups;
     vector<bool> vbConsistentGroup(mvConsistentGroups->size(),false);
     for(size_t i=0, iend=vpCandidateKFs.size(); i<iend; i++)
@@ -176,8 +174,6 @@ bool MapFusion::DetectFusionCandidates()
         for(size_t iG=0, iendG=mvConsistentGroups->size(); iG<iendG; iG++)
         {
             set<KeyFrame*> sPreviousGroup = (*mvConsistentGroups)[iG].first;
-
-            // cout << sPreviousGroup.size() << endl;
 
             bool bConsistent = false;
             for(set<KeyFrame*>::iterator sit=spCandidateGroup.begin(), send=spCandidateGroup.end(); sit!=send;sit++)
@@ -215,8 +211,6 @@ bool MapFusion::DetectFusionCandidates()
             vCurrentConsistentGroups.push_back(cg);
         }
     }
-
-    // cout << "vCCG.size() = " << vCurrentConsistentGroups.size() << endl;
 
     // Update Covisibility Consistent Groups
     // Used in processing of future KeyFrames
@@ -633,6 +627,32 @@ void MapFusion::FuseMaps() {
         }
     }
 
+    // We need to update parents/children in the essential graph now that
+    // the maps are merged. In particular, we will essentially reverse the
+    // parent-child relationships in the current map.
+
+    // The first parent-child to be swapped will be the current KF and its
+    // parent. 
+    KeyFrame* pChild = mpCurrentKF->GetParent();
+    KeyFrame* pParent = mpCurrentKF;
+    KeyFrame* pNextChild;
+
+    while (pChild) {
+        // Next child is the current child's parent.
+        pNextChild = pChild->GetParent();
+
+        // Swap parent-child relationship
+        pChild->EraseChild(pParent);
+        pChild->ChangeParent(pParent);
+
+        // Update for next iteration
+        pParent = pChild;
+        pChild = pNextChild;
+    }
+
+    // Lastly, update the current KF's parent to be the matched KF.
+    mpCurrentKF->ChangeParent(mpMatchedKF);
+
     /************
     ** Cleanup **
     ************/
@@ -656,7 +676,7 @@ void MapFusion::FuseMaps() {
     ** Covisibility Discovery **
     ***************************/
 
-    mpThreadGCC = new thread(&MapFusion::CovisibilityDiscovery,
+    mpThreadCD = new thread(&MapFusion::CovisibilityDiscovery,
         this, vpCurrentMapKFs, pMatchedMap, pMatchedKFDB);
 }
 
@@ -828,6 +848,117 @@ void MapFusion::CovisibilityDiscovery(
     cout << "\t\t\tMedian fused MPs: " << median << endl;
 
     cout << "\t\tDiscovery completed!" << endl;
+
+    // Launch a GBA thread
+    mbRunningGBA = true;
+    mbFinishedGBA = false;
+    mbStopGBA = false;
+    mpThreadGBA = new thread(&MapFusion::RunGlobalBundleAdjustment,
+        this, pMatchedMap, mpCurrentKF->mnId);
+}
+
+void MapFusion::RunGlobalBundleAdjustment(Map* pMatchedMap,
+    unsigned long nFusionKF)
+{
+    cout << "Starting Global Bundle Adjustment" << endl;
+
+    int idx = mnFullBAIdx;
+    Optimizer::GlobalBundleAdjustemnt(pMatchedMap, 10, &mbStopGBA,
+        nFusionKF, false);
+
+    // Update all MapPoints and KeyFrames
+    // Local Mapping was active during BA, that means that there might be new keyframes
+    // not included in the Global BA and they are not consistent with the updated map.
+    // We need to propagate the correction through the spanning tree
+    {
+        unique_lock<mutex> lock(mMutexGBA);
+        if(idx!=mnFullBAIdx)
+            return;
+
+        if(!mbStopGBA)
+        {
+            cout << "Global Bundle Adjustment finished" << endl;
+            cout << "Updating map ..." << endl;
+
+            // Pause mapping
+            mpServer->RequestStopMapping();
+
+            // Get Map Mutex
+            unique_lock<mutex> lock(pMatchedMap->mMutexMapUpdate);
+
+            // Correct keyframes starting at map first keyframe
+            list<KeyFrame*> lpKFtoCheck(pMatchedMap->mvpKeyFrameOrigins.begin(),pMatchedMap->mvpKeyFrameOrigins.end());
+
+            while(!lpKFtoCheck.empty())
+            {
+                KeyFrame* pKF = lpKFtoCheck.front();
+                const set<KeyFrame*> sChilds = pKF->GetChilds();
+                cv::Mat Twc = pKF->GetPoseInverse();
+                for(set<KeyFrame*>::const_iterator sit=sChilds.begin();sit!=sChilds.end();sit++)
+                {
+                    KeyFrame* pChild = *sit;
+                    if(pChild->mnBAGlobalForKF!=nFusionKF)
+                    {
+                        cv::Mat Tchildc = pChild->GetPose()*Twc;
+                        pChild->mTcwGBA = Tchildc*pKF->mTcwGBA;//*Tcorc*pKF->mTcwGBA;
+                        pChild->mnBAGlobalForKF=nFusionKF;
+
+                    }
+                    lpKFtoCheck.push_back(pChild);
+                }
+
+                pKF->mTcwBefGBA = pKF->GetPose();
+                pKF->SetPose(pKF->mTcwGBA);
+                lpKFtoCheck.pop_front();
+            }
+
+            // Correct MapPoints
+            const vector<MapPoint*> vpMPs = pMatchedMap->GetAllMapPoints();
+
+            for(size_t i=0; i<vpMPs.size(); i++)
+            {
+                MapPoint* pMP = vpMPs[i];
+
+                if(pMP->isBad())
+                    continue;
+
+                if(pMP->mnBAGlobalForKF==nFusionKF)
+                {
+                    // If optimized by Global BA, just update
+                    pMP->SetWorldPos(pMP->mPosGBA);
+                }
+                else
+                {
+                    // Update according to the correction of its reference keyframe
+                    KeyFrame* pRefKF = pMP->GetReferenceKeyFrame();
+
+                    if(pRefKF->mnBAGlobalForKF!=nFusionKF)
+                        continue;
+
+                    // Map to non-corrected camera
+                    cv::Mat Rcw = pRefKF->mTcwBefGBA.rowRange(0,3).colRange(0,3);
+                    cv::Mat tcw = pRefKF->mTcwBefGBA.rowRange(0,3).col(3);
+                    cv::Mat Xc = Rcw*pMP->GetWorldPos()+tcw;
+
+                    // Backproject using corrected camera
+                    cv::Mat Twc = pRefKF->GetPoseInverse();
+                    cv::Mat Rwc = Twc.rowRange(0,3).colRange(0,3);
+                    cv::Mat twc = Twc.rowRange(0,3).col(3);
+
+                    pMP->SetWorldPos(Rwc*Xc+twc);
+                }
+            }            
+
+            pMatchedMap->InformNewBigChange();
+
+            mpServer->RequestReleaseMapping();
+
+            cout << "Map updated!" << endl;
+        }
+
+        mbFinishedGBA = true;
+        mbRunningGBA = false;
+    }
 }
 
 bool MapFusion::isRunningGBA() {
