@@ -444,6 +444,10 @@ set<KeyFrame*> KeyFrame::GetLoopEdges()
     return mspLoopEdges;
 }
 
+void KeyFrame::SetFirstConnection(bool bFirstConnection) {
+    mbFirstConnection = bFirstConnection;
+}
+
 void KeyFrame::SetNotErase()
 {
     unique_lock<mutex> lock(mMutexConnections);

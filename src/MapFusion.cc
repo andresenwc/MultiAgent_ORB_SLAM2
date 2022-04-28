@@ -593,6 +593,36 @@ void MapFusion::FuseMaps() {
         }
     }
 
+    // We need to update parents/children because they are used for building
+    // the essential graph. In particular, we will reverse the
+    // parent-child relationships in the current map and attach the current
+    // KF to the merge KF.
+
+    // Clear the KFs that are the "first" connections in the current map,
+    // since this is no longer the case.
+    for (auto originKF : pCurrentMap->mvpKeyFrameOrigins) {
+        originKF->SetFirstConnection(false);
+    }
+
+    // The first parent-child to be swapped will be the current KF and its
+    // parent.
+    mpCurrentKF->ChangeParent(mpMatchedKF);
+    KeyFrame* pChild = mpCurrentKF->GetParent();
+    KeyFrame* pParent = mpCurrentKF;
+    KeyFrame* pNextChild;
+    while (pChild) {
+        // Next child is the current child's parent.
+        pNextChild = pChild->GetParent();
+
+        // Swap parent-child relationship
+        pChild->EraseChild(pParent);
+        pChild->ChangeParent(pParent);
+
+        // Update for next iteration
+        pParent = pChild;
+        pChild = pNextChild;
+    }
+
     // Project MapPoints observed in the neighborhood of the loop keyframe
     // into the current keyframe and neighbors using corrected poses.
     // Fuse duplications.
@@ -626,32 +656,6 @@ void MapFusion::FuseMaps() {
             LoopConnections[pKFi].erase(pKFcurr);
         }
     }
-
-    // We need to update parents/children in the essential graph now that
-    // the maps are merged. In particular, we will essentially reverse the
-    // parent-child relationships in the current map.
-
-    // The first parent-child to be swapped will be the current KF and its
-    // parent. 
-    KeyFrame* pChild = mpCurrentKF->GetParent();
-    KeyFrame* pParent = mpCurrentKF;
-    KeyFrame* pNextChild;
-
-    while (pChild) {
-        // Next child is the current child's parent.
-        pNextChild = pChild->GetParent();
-
-        // Swap parent-child relationship
-        pChild->EraseChild(pParent);
-        pChild->ChangeParent(pParent);
-
-        // Update for next iteration
-        pParent = pChild;
-        pChild = pNextChild;
-    }
-
-    // Lastly, update the current KF's parent to be the matched KF.
-    mpCurrentKF->ChangeParent(mpMatchedKF);
 
     /************
     ** Cleanup **

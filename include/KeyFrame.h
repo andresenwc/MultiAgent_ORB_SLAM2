@@ -67,6 +67,7 @@ public:
     void ComputeBoW();
 
     // Covisibility graph functions
+    void SetFirstConnection(bool bFirstConnection);
     void AddConnection(KeyFrame* pKF, const int &weight);
     void EraseConnection(KeyFrame* pKF);
     void UpdateConnections();
