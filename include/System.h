@@ -147,6 +147,8 @@ public:
     std::vector<MapPoint*> GetTrackedMapPoints();
     std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
 
+    const string mId;
+
 private:
 
     // MultiAgentServer pointer

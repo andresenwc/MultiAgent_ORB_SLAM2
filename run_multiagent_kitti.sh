@@ -1,2 +1,0 @@
-echo "Running MultiAgent KITTI"
-./Examples/Stereo-MultiAgent/stereo_kitti_multiagent Vocabulary/ORBvoc.txt Examples/Stereo/KITTI00-02.yaml Examples/DataSets/kitti/data_odometry_gray/dataset/sequences/00 

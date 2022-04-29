@@ -1,7 +1,8 @@
 CMakeLists.txt.user
 
 Examples/DataSets
-Examples/Stereo-MultiAgent/stereo_kitti_multiagent
+Examples/MultiAgent/stereo_kitti_twoagent
+Examples/MultiAgent/generic_multiagent
 Examples/Monocular/mono_euroc
 Examples/Monocular/mono_kitti
 Examples/Monocular/mono_tum

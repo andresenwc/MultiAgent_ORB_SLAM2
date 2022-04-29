@@ -83,12 +83,19 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 
 # Build examples
 
-# MultiAgent Stereo
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo-MultiAgent)
+# Generic MultiAgent
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/MultiAgent)
 
-add_executable(stereo_kitti_multiagent
-Examples/Stereo-MultiAgent/stereo_kitti_multiagent.cc)
-target_link_libraries(stereo_kitti_multiagent ${PROJECT_NAME})
+add_executable(generic_multiagent
+Examples/MultiAgent/generic_multiagent.cc)
+target_link_libraries(generic_multiagent ${PROJECT_NAME})
+
+# Stereo KITTI two-agent
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/MultiAgent)
+
+add_executable(stereo_kitti_twoagent
+Examples/MultiAgent/stereo_kitti_twoagent.cc)
+target_link_libraries(stereo_kitti_twoagent ${PROJECT_NAME})
 
 # RGB-D
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/RGB-D)

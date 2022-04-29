@@ -34,7 +34,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
                const bool bUseViewer):
         mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)),
         mbReset(false), mbActivateLocalizationMode(false),
-        mbDeactivateLocalizationMode(false), mpServer(nullptr)
+        mbDeactivateLocalizationMode(false), mpServer(nullptr), mId(id)
 {
     // Output welcome message
     cout << endl <<
