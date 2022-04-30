@@ -21,6 +21,17 @@ CameraTrajectory.txt
 CameraTrajectory1.txt
 CameraTrajectory2.txt
 
+# python virtual env
+pyenv
+
+# latex stuff
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.pdf
+*.synctex.gz
+
 Thirdparty/DBoW2/build/
 Thirdparty/DBoW2/lib/
 Thirdparty/g2o/build/
