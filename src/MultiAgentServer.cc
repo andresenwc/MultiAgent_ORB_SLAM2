@@ -1,3 +1,4 @@
+#include "MultiAgentServer.h"
 #include "MultiMap.h"
 #include "MapFusion.h"
 
@@ -5,7 +6,7 @@ namespace ORB_SLAM2 {
 
 MultiAgentServer::MultiAgentServer(
     const string &strVocFile, const string &strSettingsFile, const int sensor
-): mSensor(sensor)
+): mSensor(sensor), mbPause(false)
 {
     //----
     //Load ORB Vocabulary
@@ -34,42 +35,44 @@ MultiAgentServer::MultiAgentServer(
 
 void MultiAgentServer::RegisterClient(System* client) {
     clients.push_back(client);
+    mpMultiMap->AddSystemAndMap(client, client->GetMap());
 }
 
 void MultiAgentServer::InsertKeyFrame(KeyFrame *pKF) {
     mpMapFusion->InsertKeyFrame(pKF);
 }
 
-void MultiAgentServer::RequestStopMapping() {
+void MultiAgentServer::SetPause(bool bPause) {
+    mbPause = bPause;
+}
 
-    cout << "\tStopping local mapping." << endl;
+bool MultiAgentServer::Pause() {
+    return mbPause;
+}
+
+// Paused mapping for all SLAM systems attached to a map.
+void MultiAgentServer::RequestStopMapping(Map* pMap) {
+    // Systems to stop
+    set<System*> pSystems = mpMultiMap->GetSystems(pMap);
 
     // request stops
-    for (auto client : clients) {
-        client->getLocalMapper()->RequestStop();
+    for (auto pSystem : pSystems) {
+        pSystem->getLocalMapper()->RequestStop();
     }
 
     // wait for all local mappers to stop
-    for (auto client : clients) {
-        while(!(client->getLocalMapper()->isStopped())) {
+    for (auto pSystem : pSystems) {
+        while(!(pSystem->getLocalMapper()->isStopped())) {
             usleep(1000);
         }
     }
-
-    cout << "\tLocal mapping stopped." << endl;
 }
 
-void MultiAgentServer::RequestReleaseMapping() {
-    for (auto client : clients) {
-        client->getLocalMapper()->Release();
-    }
-
-    cout << "\tLocal mapping released." << endl;
-}
-
-void MultiAgentServer::InformNewBigChange() {
-    for (auto client : clients) {
-        client->InformNewBigChange();
+// Resume mapping for all SLAM systems attached to a map.
+void MultiAgentServer::RequestReleaseMapping(Map* pMap) {
+    set<System*> pSystems = mpMultiMap->GetSystems(pMap);
+    for (auto pSystem : pSystems) {
+        pSystem->getLocalMapper()->Release();
     }
 }
 

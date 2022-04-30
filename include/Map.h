@@ -40,9 +40,6 @@ class Map
 {
 public:
     Map();
-    Map(System* pSystem);
-
-    System* GetSystem();
 
     bool IsMerged();
     void SetIsMerged();

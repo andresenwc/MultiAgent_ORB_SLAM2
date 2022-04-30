@@ -181,6 +181,12 @@ int main(int argc, char **argv) {
 
     while (true) {
 
+        if (Server.Pause()) {
+            cout << "Paused. Press a key to continue..." << endl;
+            cin.get();
+            Server.SetPause(false);
+        }
+
         for (size_t i = 0; i < num_agents; i++) {
 
             if (sensor_type == ORB_SLAM2::MONOCULAR) {

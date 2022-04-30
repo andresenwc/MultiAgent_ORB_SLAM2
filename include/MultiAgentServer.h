@@ -27,10 +27,12 @@ class MultiAgentServer {
         void RegisterClient(System* client);
         void InsertKeyFrame(KeyFrame *pKF);
 
-        void RequestStopMapping();
-        void RequestReleaseMapping();
+        void RequestStopMapping(Map* pMap);
+        void RequestReleaseMapping(Map* pMatchedMap);
 
-        void InformNewBigChange();
+        // For analysis. See Defines.h.
+        void SetPause(bool bPause);
+        bool Pause();
 
     private:
         int mSensor;
@@ -45,6 +47,9 @@ class MultiAgentServer {
         std::thread* mptMapFusion;
 
         std::vector<System*> clients;
+
+        // For analysis. See Defines.h.
+        bool mbPause;
 };
 } // namespace ORB_SLAM2
 

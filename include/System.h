@@ -74,7 +74,6 @@ public:
     // change the KFDB, happens on map fusion
     KeyFrameDatabase* GetKeyFrameDatabase();
     void SetKeyFrameDatabase(KeyFrameDatabase* pKeyFrameDatabase);
-    void AddKFsToDB(std::vector<KeyFrame*> vpKFs);
 
     // Register a MultiAgentServer with the SLAM System for Multi-Agent SLAM
     void RegisterServer(MultiAgentServer* pServer);

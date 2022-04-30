@@ -29,14 +29,6 @@ Map::Map(): mnMaxKFid(0), mnBigChangeIdx(0), mbIsMerged(false)
 {
 }
 
-Map::Map(System* pSystem): mpSystem(pSystem), mnMaxKFid(0), mnBigChangeIdx(0), mbIsMerged(false)
-{
-}
-
-System* Map::GetSystem() {
-    return mpSystem;
-}
-
 bool Map::IsMerged() {
     return mbIsMerged;
 }

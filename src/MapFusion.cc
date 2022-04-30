@@ -133,12 +133,13 @@ bool MapFusion::DetectFusionCandidates()
     vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectLoopCandidates(mpCurrentKF, minScore);
 
     // Discard same-map fusion candidates
-    Map* pCurrentMap = mpCurrentKF->GetSystem()->GetMap();
+    Map* pCurrentMap = mpMultiMap->GetMap(mpCurrentKF->GetSystem());
     vpCandidateKFs.erase(
         std::remove_if(
             vpCandidateKFs.begin(), vpCandidateKFs.end(),       
-            [pCurrentMap](KeyFrame* pCandidateKF) {
-                return pCurrentMap == pCandidateKF->GetSystem()->GetMap();
+            [pCurrentMap, this](KeyFrame* pCandidateKF) {
+                return pCurrentMap == mpMultiMap->
+                    GetMap(pCandidateKF->GetSystem());
             }
         ), vpCandidateKFs.end());
 
@@ -409,12 +410,34 @@ bool MapFusion::ComputeSim3() {
 void MapFusion::FuseMaps() {
     cout << "\tFusing Maps!" << endl;
 
+    // For analysis. See Defines.h.
+    if (MF_PAUSE) {
+        cout << "Pausing before map fusion." << endl;
+        mpServer->SetPause(true);
+        while (mpServer->Pause()) {
+            sleep(1);
+        }
+    }
+
     /**********
     ** Setup **
     **********/
 
+    // Some vars that we will use
+    Map* pCurrentMap = mpMultiMap->GetMap(mpCurrentSystem);
+    Map* pMatchedMap = mpMultiMap->GetMap(mpMatchedSystem);
+
+    std::vector<KeyFrame*> vpCurrentMapKFs = pCurrentMap->GetAllKeyFrames();
+    std::vector<MapPoint*> vpCurrentMapMPs = pCurrentMap->GetAllMapPoints();
+
+    std::vector<KeyFrame*> vpMatchedMapKFs = pMatchedMap->GetAllKeyFrames();
+    std::vector<MapPoint*> vpMatchedMapMPs = pMatchedMap->GetAllMapPoints();
+
     // Pause local mapping while fusion is done
-    mpServer->RequestStopMapping();
+    cout << "\tStopping local mapping for involved systems." << endl;
+    mpServer->RequestStopMapping(pCurrentMap);
+    mpServer->RequestStopMapping(pMatchedMap);
+    cout << "\tLocal mapping stopped." << endl;
 
     // Abort GBA if running
     if (isRunningGBA()) {
@@ -426,16 +449,6 @@ void MapFusion::FuseMaps() {
             delete mpThreadGBA;
         }
     }
-
-    // Some vars that we will use
-    Map* pCurrentMap = mpCurrentSystem->GetMap();
-    Map* pMatchedMap = mpMatchedSystem->GetMap();
-
-    std::vector<KeyFrame*> vpCurrentMapKFs = pCurrentMap->GetAllKeyFrames();
-    std::vector<MapPoint*> vpCurrentMapMPs = pCurrentMap->GetAllMapPoints();
-
-    std::vector<KeyFrame*> vpMatchedMapKFs = pMatchedMap->GetAllKeyFrames();
-    std::vector<MapPoint*> vpMatchedMapMPs = pMatchedMap->GetAllMapPoints();
 
     // Add the raw KFs and MPs to the merge map
     {
@@ -569,9 +582,6 @@ void MapFusion::FuseMaps() {
             // The corrected pose
             cv::Mat correctedTiw = Converter::toCvSE3(eigR, eigt);
             pKFi->SetPose(correctedTiw);
-
-            // Update connections
-            pKFi->UpdateConnections();
         }
 
         // Start Map Fusion
@@ -604,12 +614,17 @@ void MapFusion::FuseMaps() {
         originKF->SetFirstConnection(false);
     }
 
+    // P2-->P1-->cKF   mKF
+    // P2-->P1-->cKF<--mKF
+    // P2-->P1   cKF<--mKF
+    // P2-->P1<--cKF<--mKF
+
     // The first parent-child to be swapped will be the current KF and its
-    // parent.
-    mpCurrentKF->ChangeParent(mpMatchedKF);
+    // parent. Then we update parent-child pairs until none remain.
     KeyFrame* pChild = mpCurrentKF->GetParent();
     KeyFrame* pParent = mpCurrentKF;
     KeyFrame* pNextChild;
+    mpCurrentKF->ChangeParent(mpMatchedKF);
     while (pChild) {
         // Next child is the current child's parent.
         pNextChild = pChild->GetParent();
@@ -661,20 +676,28 @@ void MapFusion::FuseMaps() {
     ** Cleanup **
     ************/
 
-    // Make the SLAM systems point to the same map.
-    mpCurrentSystem->SetMap(pMatchedMap);
-    pMatchedMap->SetIsMerged();
+    // Update map associations and pointers.
+    mpMultiMap->UpdateSystemMapAssociations(pCurrentMap, pMatchedMap);
 
     // Merge the KFDBs
     KeyFrameDatabase* pMatchedKFDB = mpMatchedSystem->GetKeyFrameDatabase();
-    mpMatchedSystem->AddKFsToDB(vpCurrentMapKFs);
-    mpCurrentSystem->SetKeyFrameDatabase(pMatchedKFDB);
+    // Add cur map KFs to matched map KFDB
+    for (auto pKFi : vpCurrentMapKFs) {
+        pMatchedKFDB->add(pKFi);
+    }
+    // Set systems to use the same KFDB
+    for (auto pSystem : mpMultiMap->GetSystems(pMatchedMap)) {
+        pSystem->SetKeyFrameDatabase(pMatchedKFDB);
+    }
 
-    // Inform server of large map changes
-    mpServer->InformNewBigChange();
+    // Inform maps of large changes (for viewing)
+    pCurrentMap->InformNewBigChange();
+    pMatchedMap->InformNewBigChange();
 
     // Release local mapping
-    mpServer->RequestReleaseMapping();
+    cout << "\tResuming local mapping for involved systems." << endl;
+    mpServer->RequestReleaseMapping(pMatchedMap);
+    cout << "\tLocal mapping released." << endl;
 
     /***************************
     ** Covisibility Discovery **
@@ -699,7 +722,8 @@ void MapFusion::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap)
         matcher.Fuse(pKF,cvScw,mvpLoopMapPoints,4,vpReplacePoints);
 
         // Get Map Mutex
-        unique_lock<mutex> lock(mpMatchedKF->GetMap()->mMutexMapUpdate);
+        unique_lock<mutex> lock(mpMultiMap->
+            GetMap(mpMatchedSystem)->mMutexMapUpdate);
         const int nLP = mvpLoopMapPoints.size();
         for(int i=0; i<nLP;i++)
         {
@@ -715,6 +739,15 @@ void MapFusion::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap)
 void MapFusion::CovisibilityDiscovery(
     std::vector<KeyFrame*> vpCurrentMapKFs, Map* pMatchedMap,
     KeyFrameDatabase* pMatchedKFDB) {
+
+    // For analysis. See Defines.h.
+    if (MF_PAUSE) {
+        cout << "Pausing before covis discovery." << endl;
+        mpServer->SetPause(true);
+        while (mpServer->Pause()) {
+            sleep(1);
+        }
+    }
 
     cout << "\tCovisibility Discovery!" << endl;
     cout << "\t\tStarting Discovery!" << endl;
@@ -834,6 +867,14 @@ void MapFusion::CovisibilityDiscovery(
         pKFi->UpdateConnections();
     }
 
+    cout << "\t\tDiscovery completed!" << endl;
+
+    // Launch a GBA thread
+    mbRunningGBA = true;
+    mbFinishedGBA = false;
+    mbStopGBA = false;
+    mpThreadGBA = new thread(&MapFusion::RunGlobalBundleAdjustment,
+        this, pMatchedMap, mpCurrentKF->mnId);
 
     // Some statistics about the fused MPs per KF pair
     sort(vnMatches.begin(), vnMatches.end());
@@ -850,20 +891,21 @@ void MapFusion::CovisibilityDiscovery(
     cout << "\t\t\tMean fused MPs: " << mean << endl;
     cout << "\t\t\tStdev fused MPs: " << stdev << endl;
     cout << "\t\t\tMedian fused MPs: " << median << endl;
-
-    cout << "\t\tDiscovery completed!" << endl;
-
-    // Launch a GBA thread
-    mbRunningGBA = true;
-    mbFinishedGBA = false;
-    mbStopGBA = false;
-    mpThreadGBA = new thread(&MapFusion::RunGlobalBundleAdjustment,
-        this, pMatchedMap, mpCurrentKF->mnId);
 }
 
 void MapFusion::RunGlobalBundleAdjustment(Map* pMatchedMap,
     unsigned long nFusionKF)
 {
+
+    // For analysis. See Defines.h.
+    if (MF_PAUSE) {
+        cout << "Pausing before GBA." << endl;
+        mpServer->SetPause(true);
+        while (mpServer->Pause()) {
+            sleep(1);
+        }
+    }
+
     cout << "Starting Global Bundle Adjustment" << endl;
 
     int idx = mnFullBAIdx;
@@ -885,7 +927,7 @@ void MapFusion::RunGlobalBundleAdjustment(Map* pMatchedMap,
             cout << "Updating map ..." << endl;
 
             // Pause mapping
-            mpServer->RequestStopMapping();
+            mpServer->RequestStopMapping(pMatchedMap);
 
             // Get Map Mutex
             unique_lock<mutex> lock(pMatchedMap->mMutexMapUpdate);
@@ -955,13 +997,22 @@ void MapFusion::RunGlobalBundleAdjustment(Map* pMatchedMap,
 
             pMatchedMap->InformNewBigChange();
 
-            mpServer->RequestReleaseMapping();
+            mpServer->RequestReleaseMapping(pMatchedMap);
 
             cout << "Map updated!" << endl;
         }
 
         mbFinishedGBA = true;
         mbRunningGBA = false;
+    }
+
+    // For analysis. See Defines.h.
+    if (MF_PAUSE) {
+        cout << "Pausing after GBA." << endl;
+        mpServer->SetPause(true);
+        while (mpServer->Pause()) {
+            sleep(1);
+        }
     }
 }
 

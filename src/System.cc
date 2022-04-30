@@ -78,7 +78,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
 
     //Create the Map
-    mpMap = new Map(this);
+    mpMap = new Map();
 
     //Create Drawers. These are used by the Viewer
     mpFrameDrawer = new FrameDrawer(mpMap);
@@ -144,11 +144,6 @@ void System::SetKeyFrameDatabase(KeyFrameDatabase* pKeyFrameDatabase) {
     mpKeyFrameDatabase = pKeyFrameDatabase;
     mpTracker->SetKeyFrameDatabase(pKeyFrameDatabase);
     mpLoopCloser->SetKeyFrameDatabase(pKeyFrameDatabase);
-}
-
-void System::AddKFsToDB(std::vector<KeyFrame*> vpKFs) {
-    for (auto pKFi : vpKFs)
-        mpKeyFrameDatabase->add(pKFi);
 }
 
 void System::RegisterServer(MultiAgentServer* pServer) {

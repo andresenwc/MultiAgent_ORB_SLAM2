@@ -572,7 +572,7 @@ bool LocalMapping::Stop()
     if(mbStopRequested && !mbNotStop)
     {
         mbStopped = true;
-        cout << "Local Mapping STOP" << endl;
+        // cout << "Local Mapping STOP" << endl;
         return true;
     }
 
