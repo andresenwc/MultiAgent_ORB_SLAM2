@@ -474,7 +474,8 @@ void KeyFrame::SetBadFlag()
 {   
     {
         unique_lock<mutex> lock(mMutexConnections);
-        if(mnId==0)
+        vector<KeyFrame*> origins = mpMap->mvpKeyFrameOrigins;
+        if (find(origins.begin(), origins.end(), this) != origins.end())
             return;
         else if(mbNotErase)
         {

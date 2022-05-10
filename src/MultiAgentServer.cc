@@ -33,6 +33,13 @@ MultiAgentServer::MultiAgentServer(
     mptMapFusion = new thread(&MapFusion::Run, mpMapFusion);
 }
 
+void MultiAgentServer::Shutdown() {
+    mpMapFusion->RequestFinish();
+    while (!mpMapFusion->isFinished() || mpMapFusion->isRunningCD() || mpMapFusion->isRunningGBA()) {
+        usleep(5000);
+    }
+}
+
 void MultiAgentServer::RegisterClient(System* client) {
     clients.push_back(client);
     mpMultiMap->AddSystemAndMap(client, client->GetMap());

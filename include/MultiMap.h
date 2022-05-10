@@ -17,7 +17,7 @@ class MultiMap{
         MultiMap();
 
         void AddSystemAndMap(System* pSystem, Map* pMap);
-        void UpdateSystemMapAssociations(Map* pCurrentMap, Map* pMatchedMap);
+        void UpdateSystemMapAssociations(Map* pCurrentMap, Map* pMatchedMap, System* pMatchedSystem);
         std::set<System*> GetSystems(Map* pMap);
         Map* GetMap(System* pSystem);
 

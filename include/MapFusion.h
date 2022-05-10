@@ -64,6 +64,10 @@ public:
     // Add KeyFrame to the queue
     void InsertKeyFrame(KeyFrame* pKF);
 
+    // CD functions
+    bool isRunningCD();
+    bool isFinishedCD();
+
     // GBA functions
     bool isRunningGBA();
     bool isFinishedGBA();
@@ -129,6 +133,10 @@ protected:
     bool mbFixScale;
 
     // Variables related to covisibility discovery
+    std::mutex mMutexCD;
+    bool mbRunningCD;
+    bool mbFinishedCD;
+    bool mbStopCD;
     std::thread* mpThreadCD;
 
     // Variables related to GBA

@@ -34,6 +34,8 @@ class MultiAgentServer {
         void SetPause(bool bPause);
         bool Pause();
 
+        void Shutdown();
+
     private:
         int mSensor;
 

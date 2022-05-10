@@ -586,7 +586,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         {
             KeyFrame* pKFi = mit->first;
 
-            if(!pKFi->isBad())
+            if(!pKFi->isBad() && optimizer.vertex(pKFi->mnId))
             {                
                 const cv::KeyPoint &kpUn = pKFi->mvKeysUn[mit->second];
 

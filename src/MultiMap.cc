@@ -15,7 +15,9 @@ void MultiMap::AddSystemAndMap(System* pSystem, Map* pMap) {
 
 // Update mmSystemToMap and mmMapToSystems maps for systems/maps associated
 // with the map fusion. Also updates the actual Map* in each system.
-void MultiMap::UpdateSystemMapAssociations(Map* pCurrentMap, Map* pMatchedMap) {
+void MultiMap::UpdateSystemMapAssociations(
+    Map* pCurrentMap, Map* pMatchedMap, System* pMatchedSystem) {
+
     // Get the systems that need updating
     std::set<System*> pCurrentSystems = GetSystems(pCurrentMap);
 
@@ -25,6 +27,12 @@ void MultiMap::UpdateSystemMapAssociations(Map* pCurrentMap, Map* pMatchedMap) {
         mmMapToSystems[pMatchedMap].insert(pSystem);
         mmSystemToMap[pSystem] = pMatchedMap;
         pSystem->SetMap(pMatchedMap);
+
+        // for viewing
+        if (pSystem->GetViewer()) {
+            pSystem->SetViewer(pMatchedSystem->GetViewer());
+            pSystem->SetMapDrawer(pMatchedSystem->GetMapDrawer());
+        }
     }
 
     // Related to visualization

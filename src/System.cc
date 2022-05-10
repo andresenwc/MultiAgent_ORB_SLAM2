@@ -146,6 +146,24 @@ void System::SetKeyFrameDatabase(KeyFrameDatabase* pKeyFrameDatabase) {
     mpLoopCloser->SetKeyFrameDatabase(pKeyFrameDatabase);
 }
 
+void System::SetViewer(Viewer* pViewer) {
+    mpViewer = pViewer;
+    mpTracker->SetViewer(pViewer);
+}
+
+Viewer* System::GetViewer() {
+    return mpViewer;
+}
+
+void System::SetMapDrawer(MapDrawer* pMapDrawer) {
+    mpMapDrawer = pMapDrawer;
+    mpTracker->SetMapDrawer(pMapDrawer);
+}
+
+MapDrawer* System::GetMapDrawer() {
+    return mpMapDrawer;
+}
+
 void System::RegisterServer(MultiAgentServer* pServer) {
     mpServer = pServer;
 }

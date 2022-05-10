@@ -178,63 +178,71 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
 
 void MapDrawer::DrawCurrentCamera(pangolin::OpenGlMatrix &Twc)
 {
-    const float &w = mCameraSize;
-    const float h = w*0.75;
-    const float z = w*0.6;
+    for (auto pair : mCameraPose) {
+        System* pSystem = pair.first;
+        cv::Mat pose = pair.second;
 
-    glPushMatrix();
+        pangolin::OpenGlMatrix Twc;
+        GetCurrentOpenGLCameraMatrix(pSystem, Twc);
 
-#ifdef HAVE_GLES
-        glMultMatrixf(Twc.m);
-#else
-        glMultMatrixd(Twc.m);
-#endif
+        const float &w = mCameraSize;
+        const float h = w*0.75;
+        const float z = w*0.6;
 
-    glLineWidth(mCameraLineWidth);
-    glColor3f(0.0f,1.0f,0.0f);
-    glBegin(GL_LINES);
-    glVertex3f(0,0,0);
-    glVertex3f(w,h,z);
-    glVertex3f(0,0,0);
-    glVertex3f(w,-h,z);
-    glVertex3f(0,0,0);
-    glVertex3f(-w,-h,z);
-    glVertex3f(0,0,0);
-    glVertex3f(-w,h,z);
+        glPushMatrix();
 
-    glVertex3f(w,h,z);
-    glVertex3f(w,-h,z);
+    #ifdef HAVE_GLES
+            glMultMatrixf(Twc.m);
+    #else
+            glMultMatrixd(Twc.m);
+    #endif
 
-    glVertex3f(-w,h,z);
-    glVertex3f(-w,-h,z);
+        glLineWidth(mCameraLineWidth);
+        glColor3f(0.0f,1.0f,0.0f);
+        glBegin(GL_LINES);
+        glVertex3f(0,0,0);
+        glVertex3f(w,h,z);
+        glVertex3f(0,0,0);
+        glVertex3f(w,-h,z);
+        glVertex3f(0,0,0);
+        glVertex3f(-w,-h,z);
+        glVertex3f(0,0,0);
+        glVertex3f(-w,h,z);
 
-    glVertex3f(-w,h,z);
-    glVertex3f(w,h,z);
+        glVertex3f(w,h,z);
+        glVertex3f(w,-h,z);
 
-    glVertex3f(-w,-h,z);
-    glVertex3f(w,-h,z);
-    glEnd();
+        glVertex3f(-w,h,z);
+        glVertex3f(-w,-h,z);
 
-    glPopMatrix();
+        glVertex3f(-w,h,z);
+        glVertex3f(w,h,z);
+
+        glVertex3f(-w,-h,z);
+        glVertex3f(w,-h,z);
+        glEnd();
+
+        glPopMatrix();
+    }
 }
 
 
-void MapDrawer::SetCurrentCameraPose(const cv::Mat &Tcw)
+void MapDrawer::SetCurrentCameraPose(System* pSystem, const cv::Mat &Tcw)
 {
     unique_lock<mutex> lock(mMutexCamera);
-    mCameraPose = Tcw.clone();
+    mCameraPose[pSystem] = Tcw.clone();
 }
 
-void MapDrawer::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M)
+void MapDrawer::GetCurrentOpenGLCameraMatrix(System* pSystem, pangolin::OpenGlMatrix &M)
 {
-    if(!mCameraPose.empty())
-    {
+    if (!mCameraPose[pSystem].empty()){
+        cv::Mat pose = mCameraPose[pSystem];
         cv::Mat Rwc(3,3,CV_32F);
         cv::Mat twc(3,1,CV_32F);
         {
             unique_lock<mutex> lock(mMutexCamera);
-            Rwc = mCameraPose.rowRange(0,3).colRange(0,3).t();
-            twc = -Rwc*mCameraPose.rowRange(0,3).col(3);
+            Rwc = pose.rowRange(0,3).colRange(0,3).t();
+            twc = -Rwc*pose.rowRange(0,3).col(3);
         }
 
         M.m[0] = Rwc.at<float>(0,0);

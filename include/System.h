@@ -70,6 +70,12 @@ public:
     // change the map, happens on map fusion
     Map* GetMap();
     void SetMap(Map* pMap);
+
+    // change viewer related stuff
+    void SetViewer(Viewer* pViewer);
+    Viewer* GetViewer();
+    void SetMapDrawer(MapDrawer* pMapDrawer);
+    MapDrawer* GetMapDrawer();
     
     // change the KFDB, happens on map fusion
     KeyFrameDatabase* GetKeyFrameDatabase();

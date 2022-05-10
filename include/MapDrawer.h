@@ -27,6 +27,7 @@
 #include<pangolin/pangolin.h>
 
 #include<mutex>
+#include<map>
 
 namespace ORB_SLAM2
 {
@@ -43,9 +44,9 @@ public:
     void DrawMapPoints();
     void DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph);
     void DrawCurrentCamera(pangolin::OpenGlMatrix &Twc);
-    void SetCurrentCameraPose(const cv::Mat &Tcw);
+    void SetCurrentCameraPose(System* pSystem, const cv::Mat &Tcw);
     void SetReferenceKeyFrame(KeyFrame *pKF);
-    void GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M);
+    void GetCurrentOpenGLCameraMatrix(System* pSystem, pangolin::OpenGlMatrix &M);
 
 private:
 
@@ -56,7 +57,7 @@ private:
     float mCameraSize;
     float mCameraLineWidth;
 
-    cv::Mat mCameraPose;
+    std::map<System*, cv::Mat> mCameraPose;
 
     std::mutex mMutexCamera;
 };

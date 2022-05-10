@@ -423,21 +423,32 @@ void MapFusion::FuseMaps() {
     ** Setup **
     **********/
 
-    // Some vars that we will use
     Map* pCurrentMap = mpMultiMap->GetMap(mpCurrentSystem);
     Map* pMatchedMap = mpMultiMap->GetMap(mpMatchedSystem);
-
-    std::vector<KeyFrame*> vpCurrentMapKFs = pCurrentMap->GetAllKeyFrames();
-    std::vector<MapPoint*> vpCurrentMapMPs = pCurrentMap->GetAllMapPoints();
-
-    std::vector<KeyFrame*> vpMatchedMapKFs = pMatchedMap->GetAllKeyFrames();
-    std::vector<MapPoint*> vpMatchedMapMPs = pMatchedMap->GetAllMapPoints();
 
     // Pause local mapping while fusion is done
     cout << "\tStopping local mapping for involved systems." << endl;
     mpServer->RequestStopMapping(pCurrentMap);
     mpServer->RequestStopMapping(pMatchedMap);
     cout << "\tLocal mapping stopped." << endl;
+
+    // Some vars that we will use
+    std::vector<KeyFrame*> vpCurrentMapKFs = pCurrentMap->GetAllKeyFrames();
+    std::vector<MapPoint*> vpCurrentMapMPs = pCurrentMap->GetAllMapPoints();
+
+    std::vector<KeyFrame*> vpMatchedMapKFs = pMatchedMap->GetAllKeyFrames();
+    std::vector<MapPoint*> vpMatchedMapMPs = pMatchedMap->GetAllMapPoints();
+
+    // Abort CD if running
+    if (isRunningCD()) {
+        unique_lock<mutex> lock(mMutexCD);
+        mbStopCD = true;
+
+        if (mpThreadCD) {
+            mpThreadCD->detach();
+            delete mpThreadCD;
+        }
+    }
 
     // Abort GBA if running
     if (isRunningGBA()) {
@@ -677,7 +688,8 @@ void MapFusion::FuseMaps() {
     ************/
 
     // Update map associations and pointers.
-    mpMultiMap->UpdateSystemMapAssociations(pCurrentMap, pMatchedMap);
+    mpMultiMap->
+        UpdateSystemMapAssociations(pCurrentMap, pMatchedMap, mpMatchedSystem);
 
     // Merge the KFDBs
     KeyFrameDatabase* pMatchedKFDB = mpMatchedSystem->GetKeyFrameDatabase();
@@ -702,7 +714,9 @@ void MapFusion::FuseMaps() {
     /***************************
     ** Covisibility Discovery **
     ***************************/
-
+    mbRunningCD = true;
+    mbFinishedCD = false;
+    mbStopCD = false;
     mpThreadCD = new thread(&MapFusion::CovisibilityDiscovery,
         this, vpCurrentMapKFs, pMatchedMap, pMatchedKFDB);
 }
@@ -761,6 +775,11 @@ void MapFusion::CovisibilityDiscovery(
 
     // Detect, find, and fuse MapPoints
     for (auto pCurKFi : vpCurrentMapKFs) {
+
+        if (mbStopCD)
+            break;
+
+        unique_lock<mutex> lock(mMutexCD);
 
         /***********************************
         ** Detect Covisibility Candidates **
@@ -848,6 +867,9 @@ void MapFusion::CovisibilityDiscovery(
                 }
             }
 
+            // map mutex
+            unique_lock<mutex> lock(pMatchedMap->mMutexMapUpdate);
+
             int nMatches = matcher.Fuse(pCurKFi, vpCovisMPs);
 
             if (nMatches) {
@@ -867,14 +889,10 @@ void MapFusion::CovisibilityDiscovery(
         pKFi->UpdateConnections();
     }
 
-    cout << "\t\tDiscovery completed!" << endl;
+    mbFinishedCD = true;
+    mbRunningCD = false;
 
-    // Launch a GBA thread
-    mbRunningGBA = true;
-    mbFinishedGBA = false;
-    mbStopGBA = false;
-    mpThreadGBA = new thread(&MapFusion::RunGlobalBundleAdjustment,
-        this, pMatchedMap, mpCurrentKF->mnId);
+    cout << "\t\tDiscovery completed!" << endl;
 
     // Some statistics about the fused MPs per KF pair
     sort(vnMatches.begin(), vnMatches.end());
@@ -891,6 +909,13 @@ void MapFusion::CovisibilityDiscovery(
     cout << "\t\t\tMean fused MPs: " << mean << endl;
     cout << "\t\t\tStdev fused MPs: " << stdev << endl;
     cout << "\t\t\tMedian fused MPs: " << median << endl;
+
+    // Launch a GBA thread
+    mbRunningGBA = true;
+    mbFinishedGBA = false;
+    mbStopGBA = false;
+    mpThreadGBA = new thread(&MapFusion::RunGlobalBundleAdjustment,
+        this, pMatchedMap, mpCurrentKF->mnId);
 }
 
 void MapFusion::RunGlobalBundleAdjustment(Map* pMatchedMap,
@@ -1014,6 +1039,16 @@ void MapFusion::RunGlobalBundleAdjustment(Map* pMatchedMap,
             sleep(1);
         }
     }
+}
+
+bool MapFusion::isRunningCD() {
+    unique_lock<std::mutex> lock(mMutexCD);
+    return mbRunningCD;
+}
+
+bool MapFusion::isFinishedCD() {
+    unique_lock<std::mutex> lock(mMutexCD);
+    return mbFinishedCD;
 }
 
 bool MapFusion::isRunningGBA() {

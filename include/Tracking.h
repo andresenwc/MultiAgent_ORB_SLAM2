@@ -66,6 +66,7 @@ public:
     void SetLocalMapper(LocalMapping* pLocalMapper);
     void SetLoopClosing(LoopClosing* pLoopClosing);
     void SetViewer(Viewer* pViewer);
+    void SetMapDrawer(MapDrawer* pMapDrawer);
     void SetMap(Map* pMap);
     void SetKeyFrameDatabase(KeyFrameDatabase* pKeyFrameDB);
 

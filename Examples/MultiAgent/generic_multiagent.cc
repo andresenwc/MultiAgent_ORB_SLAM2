@@ -32,24 +32,25 @@ using namespace std;
 
 void LoadImages(
     const string &data_path, const size_t &num_agents,
-    const string &seq_type, const int &sensor_type,
+    const string &seq_type, const int &sensor_type, const string &ts_path,
     vector<vector<string>> &vvstrImagesMonocular,
     vector<vector<pair<string, string>>> &vvpstrImagesStereo,
     vector<vector<double>> &vvnTimestamps);
 
 bool ParseArgs(int argc, char **argv,
     string &seq_type, size_t &num_agents, string &voc_path,
-    string &data_path, string &sett_path, int &sensor_type);
+    string &data_path, string &sett_path, int &sensor_type,
+    string &ts_path);
 
 void Usage();
 
 int main(int argc, char **argv) {
 
-    string seq_type, voc_path, data_path, sett_path;
+    string seq_type, voc_path, data_path, sett_path, ts_path;
     size_t num_agents = 0;
     int sensor_type = -1;
 
-    if (!ParseArgs(argc, argv, seq_type, num_agents, voc_path, data_path, sett_path, sensor_type))
+    if (!ParseArgs(argc, argv, seq_type, num_agents, voc_path, data_path, sett_path, sensor_type, ts_path))
         return 0;
     else {
         cout << "args parsed succesfully" << endl;
@@ -61,8 +62,7 @@ int main(int argc, char **argv) {
     vector<vector<double>> vvnTimestamps;
 
     LoadImages(
-        data_path, num_agents,
-        seq_type, sensor_type,
+        data_path, num_agents, seq_type, sensor_type, ts_path,
         vvstrImagesMonocular, vvpstrImagesStereo, vvnTimestamps);
 
     // Create Server. Initializes server threads and gets ready to process
@@ -312,12 +312,15 @@ int main(int argc, char **argv) {
 
     }
 
-    cout << "Press any button to continue..." << endl;
-    cin.get();
+    // cout << "Press any button to continue..." << endl;
+    // cin.get();
 
-    // Stop all threads
+    // Stop all SLAM systems
     for (auto SLAMSystem : SLAMSystems)
         SLAMSystem->Shutdown();
+
+    // Stop server
+    Server.Shutdown();
 
     // Tracking time statistics
     sort(vTimesTrack.begin(),vTimesTrack.end());
@@ -348,7 +351,7 @@ int main(int argc, char **argv) {
 
 void LoadImages(
     const string &data_path, const size_t &num_agents,
-    const string &seq_type, const int &sensor_type,
+    const string &seq_type, const int &sensor_type, const string &ts_path,
     vector<vector<string>> &vvstrImagesMonocular,
     vector<vector<pair<string, string>>> &vvpstrImagesStereo,
     vector<vector<double>> &vvnTimestamps) {
@@ -371,7 +374,7 @@ void LoadImages(
         timestamps_path = data_path + "/times.txt";
     }
     else if ((seq_type == "euroc") ) {
-        timestamps_path = data_path + "/cam0/data.csv";
+        timestamps_path = ts_path;
     }
 
     // paths vectors
@@ -387,14 +390,9 @@ void LoadImages(
     ifstream fTimes;
     fTimes.open(timestamps_path.c_str());
     while (!fTimes.eof()) {
-        if (seq_type == "kitti") {
-            getline(fTimes, timestamp);
-        }
-        else if (seq_type == "euroc") {
-            if (!i)
-                getline(fTimes, timestamp);
-            getline(fTimes, timestamp, ',');
-        }
+        // get the data
+        getline(fTimes, timestamp);
+
         if (!timestamp.empty()) {
             // complete kitti vectors
             if (seq_type == "kitti") {
@@ -494,10 +492,11 @@ void LoadImages(
 
 bool ParseArgs(int argc, char **argv,
     string &seq_type, size_t &num_agents, string &voc_path,
-    string &data_path, string &sett_path, int &sensor_type) {
+    string &data_path, string &sett_path, int &sensor_type,
+    string &ts_path) {
 
     int opt;
-    while ((opt = getopt(argc, argv, "t:n:v:d:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "t:n:v:d:s:c:")) != -1) {
         string optstr = string(optarg);
         switch (opt) {
             case 't':
@@ -550,6 +549,9 @@ bool ParseArgs(int argc, char **argv,
             case 's':
                 sett_path = optstr;
                 break;
+            case 'c':
+                ts_path = optstr;
+                break;
             case 'h':
                 Usage();
                 return false;
@@ -577,15 +579,22 @@ bool ParseArgs(int argc, char **argv,
         return false;
     }
 
+    if (seq_type == "euroc" && ts_path.empty()) {
+        cout << "EuRoC data requires a timestamp path." << endl;
+        Usage();
+        return false;
+    }
+
     return true;
 }
 
 void Usage() {
     cout <<
         "Usage: ./stereo_kitti_multiagent [options]\n" <<
-        "  Note that all of the following options (besides -h) are required.\n" <<
         "  Options:\n" <<
         "   -h                 Print this help message.\n" <<
+        "   -c [ts_path]       The path to the timestamps file (required and only allowed for EuRoC).\n" <<
+        "  *Note that all of the remaining options are required.\n" <<
         "   -t [seq_type]      The sequence type. Valid options: mono_kitti, mono_euroc, mono_tum, stereo_kitti, stereo_euroc, and rgbd_tum\n" <<
         "   -n [num_agents]    The number of agents to use (2-4).\n" <<
         "   -v [voc_path]      The path to the ORB vocabulary.\n" <<
