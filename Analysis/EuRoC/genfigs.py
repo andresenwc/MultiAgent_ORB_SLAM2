@@ -2,6 +2,8 @@ import copy
 import logging
 import sys
 
+from typing import List
+
 import evo.core.lie_algebra as lie
 from evo.core import trajectory, sync
 from evo.tools import plot, file_interface, log
@@ -19,52 +21,66 @@ matplotlib.rcParams.update({
     'pgf.rcfonts': False,
 })
 
-# experimental trajectories
-traj_00 = file_interface.read_tum_trajectory_file("./traj_exp/V101.txt")
-traj_00_0 = file_interface.read_tum_trajectory_file("./traj_exp/V101_0.txt")
-traj_00_1 = file_interface.read_tum_trajectory_file("./traj_exp/V101_1.txt")
-traj_00_2 = file_interface.read_tum_trajectory_file("./traj_exp/V101_2.txt")
-traj_00_3 = file_interface.read_tum_trajectory_file("./traj_exp/V101_3.txt")
+# seq - sequence
+# n - number of agents
+def plot_traj(seq: str, n: int):
 
-# ground truth trajectory
-traj_00_gt = file_interface.read_euroc_csv_trajectory("./traj_gt/V101.csv")
-file_interface.write_tum_trajectory_file("./traj_gt/V101_tum.csv", traj_00_gt, confirm_overwrite=False)
-traj_00_gt = file_interface.read_tum_trajectory_file("./traj_gt/V101_tum.csv")
+    colors = ["blue", "green", "red", "yellow"]
 
-# align trajectories to gt trajectory
-traj_00, traj_00_gt = sync.associate_trajectories(traj_00, traj_00_gt)
-traj_00_as = copy.deepcopy(traj_00)
-r_a, t_a, s = traj_00_as.align(traj_00_gt, correct_scale=True)
+    # ground truth trajectory
+    tgt = file_interface.read_euroc_csv_trajectory("./traj_gt/{}.csv".format(seq))
+    file_interface.write_tum_trajectory_file("./traj_gt/V101_tum.csv", tgt, confirm_overwrite=False)
+    tgt = file_interface.read_tum_trajectory_file("./traj_gt/V101_tum.csv")
+
+    # experimental trajectories
+    tec = file_interface.read_tum_trajectory_file("./traj_exp/{}.txt".format(seq))
+    te = []
+    for i in range(n):
+        fname = "./traj_exp/{}_{}.txt".format(seq, i)
+        te.append(file_interface.read_tum_trajectory_file(fname))
+
+    # align and scale the trajectories
+    tec, tgt = sync.associate_trajectories(tec, tgt)
+    tec_as = copy.deepcopy(tec)
+    r_a, t_a, s = tec_as.align(tgt, correct_scale=True)
+
+    te_as = []
+    for t in te:
+        t_as = copy.deepcopy(t)
+        t_as.scale(s)
+        t_as.transform(lie.se3(r_a, t_a))
+        te_as.append(t_as)
+    
+    # plot the trajectories, save the plot
+    fig = plt.figure()
+    plot_mode = plot.PlotMode.xyz
+
+    ax = plot.prepare_axis(fig, plot_mode, subplot_arg=111)
+    plot.traj(ax, plot_mode, tgt, "--", "gray", "gt")
+
+    for i in range(len(te_as)):
+        plot.traj(ax, plot_mode, te_as[i], "-", colors[i], "cam{}".format(i))
+
+    lgd = ax.legend(loc="best", prop={"size" : 12})
+    fig.axes.append(ax)
+    plt.title("EuRoC {} Trajectory Comparison".format(seq))
+
+    # asp = np.diff(ax.get_xlim())[0] / np.diff(ax.get_ylim())[0]
+    # ax.set_aspect(asp)
+
+    fig.tight_layout()
+    plt.savefig("figs/EuRoC_{}.pgf".format(seq), bbox_extra_artists=(lgd,), bbox_inches="tight")
 
 
-traj_00_0_as = copy.deepcopy(traj_00_0)
-traj_00_0_as.scale(s)
-traj_00_0_as.transform(lie.se3(r_a, t_a))
 
-traj_00_1_as = copy.deepcopy(traj_00_1)
-traj_00_1_as.scale(s)
-traj_00_1_as.transform(lie.se3(r_a, t_a))
-
-traj_00_2_as = copy.deepcopy(traj_00_2)
-traj_00_2_as.scale(s)
-traj_00_2_as.transform(lie.se3(r_a, t_a))
-
-traj_00_3_as = copy.deepcopy(traj_00_3)
-traj_00_3_as.scale(s)
-traj_00_3_as.transform(lie.se3(r_a, t_a))
-
-fig = plt.figure()
-plot_mode = plot.PlotMode.xyz
-
-ax = plot.prepare_axis(fig, plot_mode, subplot_arg=111)
-plot.traj(ax, plot_mode, traj_00_gt, "--", "gray", "gt")
-plot.traj(ax, plot_mode, traj_00_0_as, "-", "blue", "cam0")
-plot.traj(ax, plot_mode, traj_00_1_as, "-", "green", "cam1")
-plot.traj(ax, plot_mode, traj_00_2_as, "-", "red", "cam2")
-plot.traj(ax, plot_mode, traj_00_3_as, "-", "yellow", "cam3")
-ax.legend(loc="upper left", prop={"size" : 12})
-fig.axes.append(ax)
-plt.title("EuRoC V101 Trajectory Comparison")
-
-fig.tight_layout()
-plt.savefig("figs/EuRoC_V101.pgf", bbox_inches="tight")
+plot_traj("MH01", 2)
+plot_traj("MH02", 2)
+plot_traj("MH03", 2)
+plot_traj("MH04", 2)
+plot_traj("MH05", 2)
+plot_traj("V101", 2)
+plot_traj("V102", 2)
+plot_traj("V103", 2)
+plot_traj("V201", 2)
+plot_traj("V202", 2)
+# plot_traj("V203", 2)

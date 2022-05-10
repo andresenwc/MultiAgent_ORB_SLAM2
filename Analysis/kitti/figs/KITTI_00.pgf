@@ -1336,7 +1336,7 @@
 \definecolor{textcolor}{rgb}{0.150000,0.150000,0.150000}%
 \pgfsetstrokecolor{textcolor}%
 \pgfsetfillcolor{textcolor}%
-\pgftext[x=1.348956in,y=3.746704in,left,base]{\color{textcolor}\rmfamily\fontsize{12.000000}{14.400000}\selectfont cam1}%
+\pgftext[x=1.348956in,y=3.746704in,left,base]{\color{textcolor}\rmfamily\fontsize{12.000000}{14.400000}\selectfont cam0}%
 \end{pgfscope}%
 \begin{pgfscope}%
 \pgfsetroundcap%
@@ -1354,7 +1354,7 @@
 \definecolor{textcolor}{rgb}{0.150000,0.150000,0.150000}%
 \pgfsetstrokecolor{textcolor}%
 \pgfsetfillcolor{textcolor}%
-\pgftext[x=1.348956in,y=3.514297in,left,base]{\color{textcolor}\rmfamily\fontsize{12.000000}{14.400000}\selectfont cam2}%
+\pgftext[x=1.348956in,y=3.514297in,left,base]{\color{textcolor}\rmfamily\fontsize{12.000000}{14.400000}\selectfont cam1}%
 \end{pgfscope}%
 \end{pgfpicture}%
 \makeatother%
