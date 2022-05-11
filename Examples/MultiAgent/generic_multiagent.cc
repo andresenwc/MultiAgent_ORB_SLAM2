@@ -32,25 +32,28 @@ using namespace std;
 
 void LoadImages(
     const string &data_path, const size_t &num_agents,
-    const string &seq_type, const int &sensor_type, const string &ts_path,
+    const string &seq_type, const int &sensor_type,
+    const string &ts_path, const string &assoc_path,
     vector<vector<string>> &vvstrImagesMonocular,
     vector<vector<pair<string, string>>> &vvpstrImagesStereo,
-    vector<vector<double>> &vvnTimestamps);
+    vector<vector<double>> &vvnTimestamps,
+    vector<vector<pair<string, string>>> &vvpstrRGBD);
 
 bool ParseArgs(int argc, char **argv,
     string &seq_type, size_t &num_agents, string &voc_path,
     string &data_path, string &sett_path, int &sensor_type,
-    string &ts_path);
+    string &ts_path, string &assoc_path);
 
 void Usage();
 
 int main(int argc, char **argv) {
 
-    string seq_type, voc_path, data_path, sett_path, ts_path;
+    string seq_type, voc_path, data_path, sett_path, ts_path, assoc_path;
     size_t num_agents = 0;
     int sensor_type = -1;
 
-    if (!ParseArgs(argc, argv, seq_type, num_agents, voc_path, data_path, sett_path, sensor_type, ts_path))
+    if (!ParseArgs(argc, argv, seq_type, num_agents, voc_path, data_path,
+        sett_path, sensor_type, ts_path, assoc_path))
         return 0;
     else {
         cout << "args parsed succesfully" << endl;
@@ -58,12 +61,12 @@ int main(int argc, char **argv) {
 
     // vectors containing paths to images
     vector<vector<string>> vvstrImagesMonocular;
-    vector<vector<pair<string, string>>> vvpstrImagesStereo;
+    vector<vector<pair<string, string>>> vvpstrImagesStereo, vvpstrRGBD;
     vector<vector<double>> vvnTimestamps;
 
     LoadImages(
-        data_path, num_agents, seq_type, sensor_type, ts_path,
-        vvstrImagesMonocular, vvpstrImagesStereo, vvnTimestamps);
+        data_path, num_agents, seq_type, sensor_type, ts_path, assoc_path,
+        vvstrImagesMonocular, vvpstrImagesStereo, vvnTimestamps, vvpstrRGBD);
 
     // Create Server. Initializes server threads and gets ready to process
     // keyframs from client SLAM systems.
@@ -146,19 +149,21 @@ int main(int argc, char **argv) {
 
     // Vectors for each loop iteration
     vector<cv::Mat*> vmatImagesMonocular;
-    vector<pair<cv::Mat*, cv::Mat*>> vpmatImagesStereo;
+    vector<pair<cv::Mat*, cv::Mat*>> vpmatImagesStereo, vpmatImagesRGBD;
     vector<double> vnTimeStamps;
     vmatImagesMonocular.reserve(num_agents);
     vpmatImagesStereo.reserve(num_agents);
+    vpmatImagesRGBD.reserve(num_agents);
     vnTimeStamps.reserve(num_agents);
 
     // Iterators to handle simultaneous movement across all vectors
     vector<vector<string>::iterator> imItsMonocular;
-    vector<vector<pair<string, string>>::iterator> imItsStereo;
+    vector<vector<pair<string, string>>::iterator> imItsStereo, imItsRGBD;
     vector<vector<double>::iterator> tsIts;
 
     imItsMonocular.reserve(num_agents);
     imItsStereo.reserve(num_agents);
+    imItsRGBD.reserve(num_agents);
     tsIts.reserve(num_agents);
 
     // Initialize mono and stereo image its
@@ -170,6 +175,11 @@ int main(int argc, char **argv) {
     else if (sensor_type == ORB_SLAM2::STEREO) {
         for (size_t i = 0; i < num_agents; i++) {
             imItsStereo[i] = vvpstrImagesStereo[i].begin();
+        }
+    }
+    else if (sensor_type == ORB_SLAM2::RGBD) {
+        for (size_t i = 0; i < num_agents; i++) {
+            imItsRGBD[i] = vvpstrRGBD[i].begin();
         }
     }
     // Initialize timestamp its
@@ -232,6 +242,25 @@ int main(int argc, char **argv) {
                     }
                 }
             }
+            else if (sensor_type == ORB_SLAM2::RGBD) {
+                vector<pair<string, string>>::iterator imIt = imItsRGBD[i];
+                if (imIt != vvpstrRGBD[i].end()) {
+                    cv::Mat *imRGB = new cv::Mat();
+                    cv::Mat *imD = new cv::Mat();
+
+                    *imRGB = cv::imread(imIt->first, CV_LOAD_IMAGE_UNCHANGED);
+                    *imD = cv::imread(imIt->second, CV_LOAD_IMAGE_UNCHANGED);
+
+                    if ((*imRGB).empty() || (*imD).empty()) {
+                        cerr << endl << "Failed to load one of these images: "
+                            << string(imIt->first) << " "
+                            << string(imIt->second) << endl;
+                        return 1;
+                    }
+
+                    vpmatImagesRGBD[i] = make_pair(imRGB, imD);
+                }
+            }
 
             if (tsIts[i] != vvnTimestamps[i].end()) {
                 vnTimeStamps[i] = *tsIts[i];
@@ -258,6 +287,12 @@ int main(int argc, char **argv) {
                     double ts = vnTimeStamps[i];
                     SLAMSystems[i]->TrackStereo(imLeft, imRight, ts);
                 }
+                else if (sensor_type == ORB_SLAM2::RGBD) {
+                    cv::Mat RGB = *(vpmatImagesRGBD[i].first);
+                    cv::Mat D = *(vpmatImagesRGBD[i].second);
+                    double ts = vnTimeStamps[i];
+                    SLAMSystems[i]->TrackRGBD(RGB, D, ts);
+                }
             }
         }
 
@@ -279,6 +314,8 @@ int main(int argc, char **argv) {
                     imItsMonocular[i]++;
                 else if (sensor_type == ORB_SLAM2::STEREO)
                     imItsStereo[i]++;
+                else if (sensor_type == ORB_SLAM2::RGBD)
+                    imItsRGBD[i]++;
             }
         }
 
@@ -343,6 +380,10 @@ int main(int argc, char **argv) {
             SLAMSystem->SaveTrajectoryKITTI(SLAMSystem->mId);
         else if (sensor_type == ORB_SLAM2::STEREO && seq_type == "euroc")
             SLAMSystem->SaveTrajectoryTUM(SLAMSystem->mId);
+        else if (sensor_type == ORB_SLAM2::RGBD) {
+            SLAMSystem->SaveTrajectoryTUM(string("CT_") + SLAMSystem->mId);
+            SLAMSystem->SaveKeyFrameTrajectoryTUM(string("KFT_") + SLAMSystem->mId);
+        }
     }
 
     return 0;
@@ -351,10 +392,12 @@ int main(int argc, char **argv) {
 
 void LoadImages(
     const string &data_path, const size_t &num_agents,
-    const string &seq_type, const int &sensor_type, const string &ts_path,
+    const string &seq_type, const int &sensor_type,
+    const string &ts_path, const string &assoc_path,
     vector<vector<string>> &vvstrImagesMonocular,
     vector<vector<pair<string, string>>> &vvpstrImagesStereo,
-    vector<vector<double>> &vvnTimestamps) {
+    vector<vector<double>> &vvnTimestamps,
+    vector<vector<pair<string, string>>> &vvpstrRGBD) {
 
     // prefixes
     string strPrefixLeft;
@@ -367,6 +410,9 @@ void LoadImages(
         strPrefixLeft = data_path + "/cam0/data/";
         strPrefixRight = data_path + "/cam1/data/";
     }
+    else if (seq_type == "tum") {
+        strPrefixLeft = data_path;
+    }
 
     // timestamps path
     string timestamps_path;
@@ -376,24 +422,29 @@ void LoadImages(
     else if ((seq_type == "euroc") ) {
         timestamps_path = ts_path;
     }
+    else if (seq_type == "tum") {
+        timestamps_path = assoc_path;
+    }
 
     // paths vectors
     vector<double> vnTimestamps;
     vector<string> vstrImagesMonocular;
-    vector<pair<string, string>> vpstrImagesStereo;
+    vector<pair<string, string>> vpstrImagesStereo, vpstrRGBD;
 
     // complete the paths vectors
     int i = 0;
     stringstream ss;
-    string timestamp;
+    string ts_line;
+    string RGB;
+    string D;
     double t = -1;
     ifstream fTimes;
     fTimes.open(timestamps_path.c_str());
     while (!fTimes.eof()) {
         // get the data
-        getline(fTimes, timestamp);
+        getline(fTimes, ts_line);
 
-        if (!timestamp.empty()) {
+        if (!ts_line.empty()) {
             // complete kitti vectors
             if (seq_type == "kitti") {
                 ss << setfill('0') << setw(6) << i;
@@ -413,13 +464,13 @@ void LoadImages(
                 ss.str(std::string());
                 ss.clear();
 
-                ss << timestamp;
+                ss << ts_line;
                 ss >> t;
                 vnTimestamps.push_back(t);
             }
             // complete euroc vectors
             else if (seq_type == "euroc") {
-                ss << timestamp;
+                ss << ts_line;
 
                 if (sensor_type == ORB_SLAM2::MONOCULAR) {
                     vstrImagesMonocular
@@ -434,7 +485,33 @@ void LoadImages(
 
                 ss >> t;
                 vnTimestamps.push_back(t/1e9);
-                getline(fTimes, timestamp);
+                getline(fTimes, ts_line);
+            }
+            // complete tum vectors
+            else if (seq_type == "tum") {
+                ss << ts_line;
+
+                if (sensor_type == ORB_SLAM2::MONOCULAR) {
+                    ss >> t;
+                    vnTimestamps.push_back(t);
+                    ss >> RGB;
+                    vstrImagesMonocular.push_back(
+                        strPrefixLeft + RGB + ".png"
+                    );
+                }
+                else if (sensor_type == ORB_SLAM2::RGBD) {
+                    ss >> t;
+                    vnTimestamps.push_back(t);
+                    ss >> RGB;
+                    ss >> t;
+                    ss >> D;
+                    vpstrRGBD.push_back(
+                        make_pair(
+                            strPrefixLeft + "/" + RGB,
+                            strPrefixLeft + "/" + D
+                        )
+                    );
+                }
             }
         }
 
@@ -446,6 +523,10 @@ void LoadImages(
     }
 
     // for (auto str : vpstrImagesStereo) {
+    //     cout << str.first << " " << str.second << endl;
+    // }
+
+    // for (auto str : vpstrRGBD) {
     //     cout << str.first << " " << str.second << endl;
     // }
 
@@ -477,13 +558,25 @@ void LoadImages(
             vvstrImagesMonocular.push_back(
                 vector<string>(
                     vstrImagesMonocular.begin() + begin,
-                    vstrImagesMonocular.begin() + end));
+                    vstrImagesMonocular.begin() + end
+                )
+            );
         }
         else if (sensor_type == ORB_SLAM2::STEREO) {
             vvpstrImagesStereo.push_back(
                 vector<pair<string, string>>(
                     vpstrImagesStereo.begin() + begin,
-                    vpstrImagesStereo.begin() + end));
+                    vpstrImagesStereo.begin() + end
+                )
+            );
+        }
+        else if (sensor_type == ORB_SLAM2::RGBD) {
+            vvpstrRGBD.push_back(
+                vector<pair<string, string>>(
+                    vpstrRGBD.begin() + begin,
+                    vpstrRGBD.begin() + end
+                )
+            );
         }
 
         begin = end;
@@ -493,10 +586,10 @@ void LoadImages(
 bool ParseArgs(int argc, char **argv,
     string &seq_type, size_t &num_agents, string &voc_path,
     string &data_path, string &sett_path, int &sensor_type,
-    string &ts_path) {
+    string &ts_path, string &assoc_path) {
 
     int opt;
-    while ((opt = getopt(argc, argv, "t:n:v:d:s:c:")) != -1) {
+    while ((opt = getopt(argc, argv, "t:n:v:d:s:c:a:")) != -1) {
         string optstr = string(optarg);
         switch (opt) {
             case 't':
@@ -552,6 +645,9 @@ bool ParseArgs(int argc, char **argv,
             case 'c':
                 ts_path = optstr;
                 break;
+            case 'a':
+                assoc_path = optstr;
+                break;
             case 'h':
                 Usage();
                 return false;
@@ -585,6 +681,12 @@ bool ParseArgs(int argc, char **argv,
         return false;
     }
 
+    if (seq_type == "tum" && sensor_type == ORB_SLAM2::RGBD && assoc_path.empty()) {
+        cout << "RGBD TUM data requires an association path." << endl;
+        Usage();
+        return false;
+    }
+
     return true;
 }
 
@@ -594,6 +696,7 @@ void Usage() {
         "  Options:\n" <<
         "   -h                 Print this help message.\n" <<
         "   -c [ts_path]       The path to the timestamps file (required and only allowed for EuRoC).\n" <<
+        "   -a [assoc_path]    The path to the associations file (required and only allowed for RGBD TUM).\n" <<
         "  *Note that all of the remaining options are required.\n" <<
         "   -t [seq_type]      The sequence type. Valid options: mono_kitti, mono_euroc, mono_tum, stereo_kitti, stereo_euroc, and rgbd_tum\n" <<
         "   -n [num_agents]    The number of agents to use (2-4).\n" <<
