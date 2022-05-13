@@ -646,7 +646,9 @@ void LocalMapping::KeyFrameCulling()
     for(vector<KeyFrame*>::iterator vit=vpLocalKeyFrames.begin(), vend=vpLocalKeyFrames.end(); vit!=vend; vit++)
     {
         KeyFrame* pKF = *vit;
-        if(pKF->mnId==0)
+        vector<KeyFrame*> pKFOrigins = pKF->GetMap()->mvpKeyFrameOrigins;
+        bool isOrigin = std::find(pKFOrigins.begin(), pKFOrigins.end(), pKF) != pKFOrigins.end();
+        if(isOrigin)
             continue;
         const vector<MapPoint*> vpMapPoints = pKF->GetMapPointMatches();
 

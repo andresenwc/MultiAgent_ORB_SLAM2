@@ -241,6 +241,9 @@ bool MapFusion::ComputeSim3() {
 
     const int nInitialCandidates = mvpEnoughConsistentCandidates->size();
 
+    // stats
+    std::chrono::steady_clock::time_point b = std::chrono::steady_clock::now();
+
     // We compute first ORB matches for each candidate
     // If enough matches are found, we setup a Sim3Solver
     ORBmatcher matcher(0.75,true);
@@ -396,6 +399,13 @@ bool MapFusion::ComputeSim3() {
         for(int i=0; i<nInitialCandidates; i++)
             if((*mvpEnoughConsistentCandidates)[i]!=mpMatchedKF)
                 (*mvpEnoughConsistentCandidates)[i]->SetErase();
+        // stats
+        std::chrono::steady_clock::time_point e = std::chrono::steady_clock::now();
+        if (MAP_FUSION_STATS) {
+            ofstream of("stats.csv", std::ios::app);
+            double t = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count();
+            of << t << ",";
+        }
         return true;
     }
     else
@@ -411,13 +421,15 @@ void MapFusion::FuseMaps() {
     cout << "\tFusing Maps!" << endl;
 
     // For analysis. See Defines.h.
-    if (MF_PAUSE) {
+    if (MAP_FUSION_PAUSE) {
         cout << "Pausing before map fusion." << endl;
         mpServer->SetPause(true);
         while (mpServer->Pause()) {
             sleep(1);
         }
     }
+
+    std::chrono::steady_clock::time_point b = std::chrono::steady_clock::now();
 
     /**********
     ** Setup **
@@ -711,6 +723,15 @@ void MapFusion::FuseMaps() {
     mpServer->RequestReleaseMapping(pMatchedMap);
     cout << "\tLocal mapping released." << endl;
 
+
+    // stats
+    std::chrono::steady_clock::time_point e = std::chrono::steady_clock::now();
+    if (MAP_FUSION_STATS) {
+        ofstream of("stats.csv", std::ios::app);
+        double t = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count();
+        of << t << "," << vpCurrentMapKFs.size() << "," << vpCurrentMapMPs.size() << "," << vpMatchedMapKFs.size() << "," << vpMatchedMapMPs.size() << ",";
+    }
+
     /***************************
     ** Covisibility Discovery **
     ***************************/
@@ -755,13 +776,16 @@ void MapFusion::CovisibilityDiscovery(
     KeyFrameDatabase* pMatchedKFDB) {
 
     // For analysis. See Defines.h.
-    if (MF_PAUSE) {
+    if (MAP_FUSION_PAUSE) {
         cout << "Pausing before covis discovery." << endl;
         mpServer->SetPause(true);
         while (mpServer->Pause()) {
             sleep(1);
         }
     }
+
+    // stats
+    std::chrono::steady_clock::time_point b = std::chrono::steady_clock::now();
 
     cout << "\tCovisibility Discovery!" << endl;
     cout << "\t\tStarting Discovery!" << endl;
@@ -906,9 +930,18 @@ void MapFusion::CovisibilityDiscovery(
     double sq_sum = inner_product(vnMatches.begin(), vnMatches.end(), vnMatches.begin(), 0.0);
     double stdev = sqrt(sq_sum/totalFusions - mean*mean);
 
+    cout << "\t\t\tTotal fused MPs: " << sum << endl;
     cout << "\t\t\tMean fused MPs: " << mean << endl;
     cout << "\t\t\tStdev fused MPs: " << stdev << endl;
     cout << "\t\t\tMedian fused MPs: " << median << endl;
+
+    // stats
+    std::chrono::steady_clock::time_point e = std::chrono::steady_clock::now();
+    if (MAP_FUSION_STATS) {
+        ofstream of("stats.csv", std::ios::app);
+        double t = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count();
+        of << t << "," << sum << "," << mean << "," << stdev << "," << median << ",";
+    }
 
     // Launch a GBA thread
     mbRunningGBA = true;
@@ -923,7 +956,7 @@ void MapFusion::RunGlobalBundleAdjustment(Map* pMatchedMap,
 {
 
     // For analysis. See Defines.h.
-    if (MF_PAUSE) {
+    if (MAP_FUSION_PAUSE) {
         cout << "Pausing before GBA." << endl;
         mpServer->SetPause(true);
         while (mpServer->Pause()) {
@@ -932,6 +965,9 @@ void MapFusion::RunGlobalBundleAdjustment(Map* pMatchedMap,
     }
 
     cout << "Starting Global Bundle Adjustment" << endl;
+
+    // stats
+    std::chrono::steady_clock::time_point b = std::chrono::steady_clock::now();
 
     int idx = mnFullBAIdx;
     Optimizer::GlobalBundleAdjustemnt(pMatchedMap, 10, &mbStopGBA,
@@ -952,7 +988,9 @@ void MapFusion::RunGlobalBundleAdjustment(Map* pMatchedMap,
             cout << "Updating map ..." << endl;
 
             // Pause mapping
+            cout << "\tStopping local mapping for involved systems." << endl;
             mpServer->RequestStopMapping(pMatchedMap);
+            cout << "\tLocal mapping stopped." << endl;
 
             // Get Map Mutex
             unique_lock<mutex> lock(pMatchedMap->mMutexMapUpdate);
@@ -1022,7 +1060,9 @@ void MapFusion::RunGlobalBundleAdjustment(Map* pMatchedMap,
 
             pMatchedMap->InformNewBigChange();
 
+            cout << "\tResuming local mapping for involved systems." << endl;
             mpServer->RequestReleaseMapping(pMatchedMap);
+            cout << "\tLocal mapping released." << endl;
 
             cout << "Map updated!" << endl;
         }
@@ -1031,8 +1071,16 @@ void MapFusion::RunGlobalBundleAdjustment(Map* pMatchedMap,
         mbRunningGBA = false;
     }
 
+    // stats
+    std::chrono::steady_clock::time_point e = std::chrono::steady_clock::now();
+    if (MAP_FUSION_STATS) {
+        ofstream of("stats.csv", std::ios::app);
+        double t = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count();
+        of << t << endl;
+    }
+
     // For analysis. See Defines.h.
-    if (MF_PAUSE) {
+    if (MAP_FUSION_PAUSE) {
         cout << "Pausing after GBA." << endl;
         mpServer->SetPause(true);
         while (mpServer->Pause()) {

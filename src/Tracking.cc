@@ -521,6 +521,8 @@ void Tracking::StereoInitialization()
 {
     if(mCurrentFrame.N>500)
     {
+        mVelocity = cv::Mat();
+
         // Set Frame pose to the origin
         mCurrentFrame.SetPose(cv::Mat::eye(4,4,CV_32F));
 
@@ -1543,11 +1545,15 @@ void Tracking::Reset()
     mpKeyFrameDB->clear();
     cout << " done" << endl;
 
+    // Delete KFs from Server
+    if (mpSystem->getServer())
+        mpSystem->getServer()->DeleteKFsFromDB(mpMap->GetAllKeyFrames());
+
     // Clear Map (this erase MapPoints and KeyFrames)
     mpMap->clear();
 
-    KeyFrame::nNextId = 0;
-    Frame::nNextId = 0;
+    // KeyFrame::nNextId = 0;
+    // Frame::nNextId = 0;
     mState = NO_IMAGES_YET;
 
     if(mpInitializer)

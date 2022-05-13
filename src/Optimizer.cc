@@ -76,7 +76,9 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
         g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
         vSE3->setEstimate(Converter::toSE3Quat(pKF->GetPose()));
         vSE3->setId(pKF->mnId);
-        vSE3->setFixed(pKF->mnId==0);
+        vector<KeyFrame*> pKFOrigins = pKF->GetMap()->mvpKeyFrameOrigins;
+        bool isOrigin = std::find(pKFOrigins.begin(), pKFOrigins.end(), pKF) != pKFOrigins.end();
+        vSE3->setFixed(isOrigin);
         optimizer.addVertex(vSE3);
         if(pKF->mnId>maxKFid)
             maxKFid=pKF->mnId;
@@ -526,7 +528,9 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
         vSE3->setEstimate(Converter::toSE3Quat(pKFi->GetPose()));
         vSE3->setId(pKFi->mnId);
-        vSE3->setFixed(pKFi->mnId==0);
+        vector<KeyFrame*> pKFOrigins = pKFi->GetMap()->mvpKeyFrameOrigins;
+        bool isOrigin = std::find(pKFOrigins.begin(), pKFOrigins.end(), pKFi) != pKFOrigins.end();
+        vSE3->setFixed(isOrigin);
         optimizer.addVertex(vSE3);
         if(pKFi->mnId>maxKFid)
             maxKFid=pKFi->mnId;

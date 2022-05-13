@@ -136,6 +136,13 @@ int main(int argc, char **argv) {
 
     }
 
+    // stats first line
+    if (MAP_FUSION_STATS) {
+        ofstream of("stats.csv");
+        of << "sim3[µs],mf[µs],ckf,cmp,mkf,mmp,cd[µs],cdsum,cdmean,cdstdev,cdmed,gba[µs]" << endl;
+        of.close();
+    }
+
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
 
@@ -353,8 +360,7 @@ int main(int argc, char **argv) {
     // cin.get();
 
     // Stop all SLAM systems
-    for (auto SLAMSystem : SLAMSystems)
-        SLAMSystem->Shutdown();
+    Server.ShutdownSystems();
 
     // Stop server
     Server.Shutdown();

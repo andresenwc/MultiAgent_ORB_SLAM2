@@ -71,7 +71,7 @@ public:
     void RequestReset();
 
     // This function will run in a separate thread
-    void RunGlobalBundleAdjustment(unsigned long nLoopKF);
+    void RunGlobalBundleAdjustment(unsigned long nLoopKF, KeyFrame* pCurrentKF);
 
     bool isRunningGBA(){
         unique_lock<std::mutex> lock(mMutexGBA);

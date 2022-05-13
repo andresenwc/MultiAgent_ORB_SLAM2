@@ -71,19 +71,27 @@ void LoopClosing::Run()
             // Detect loop candidates and check covisibility consistency
             if(DetectLoop())
             {
-               // Compute similarity transformation [sR|t]
-               // In the stereo/RGBD case s=1
-               if(ComputeSim3())
-               {
-                   // Perform loop fusion and pose graph optimization
-                   CorrectLoop();
-               }
+                // Compute similarity transformation [sR|t]
+                // In the stereo/RGBD case s=1
+                if(ComputeSim3())
+                {
+                    // Perform loop fusion and pose graph optimization
+                    CorrectLoop();
+                }
+                else {
+                    // Insert new keyframe into server, if it exists
+                    MultiAgentServer* mpServer = mpSystem->getServer();
+                    if (mpServer) {
+                        mpServer->InsertKeyFrame(mpCurrentKF);
+                    }
+                }
             }
-
-            // Insert new keyframe into server, if it exists
-            MultiAgentServer* mpServer = mpSystem->getServer();
-            if (mpServer) {
-                mpServer->InsertKeyFrame(mpCurrentKF);
+            else {
+                // Insert new keyframe into server, if it exists
+                MultiAgentServer* mpServer = mpSystem->getServer();
+                if (mpServer) {
+                    mpServer->InsertKeyFrame(mpCurrentKF);
+                }
             }
         }       
 
@@ -419,8 +427,10 @@ void LoopClosing::CorrectLoop()
     cout << "Loop detected!" << endl;
 
     // Send a stop signal to Local Mapping
-    // Avoid new keyframes are inserted while correcting the loop
-    mpLocalMapper->RequestStop();
+    // Avoid new keyframes are inserted while correcting the 
+    cout << "\tStopping local mapping for involved systems." << endl;
+    mpSystem->getServer()->RequestStopMapping(mpMap);
+    cout << "\tLocal mapping stopped." << endl;
 
     // If a Global Bundle Adjustment is running, abort it
     if(isRunningGBA())
@@ -435,12 +445,6 @@ void LoopClosing::CorrectLoop()
             mpThreadGBA->detach();
             delete mpThreadGBA;
         }
-    }
-
-    // Wait until Local Mapping has effectively stopped
-    while(!mpLocalMapper->isStopped())
-    {
-        usleep(1000);
     }
 
     // Ensure current keyframe is updated
@@ -591,10 +595,12 @@ void LoopClosing::CorrectLoop()
     mbRunningGBA = true;
     mbFinishedGBA = false;
     mbStopGBA = false;
-    mpThreadGBA = new thread(&LoopClosing::RunGlobalBundleAdjustment,this,mpCurrentKF->mnId);
+    mpThreadGBA = new thread(&LoopClosing::RunGlobalBundleAdjustment,this,mpCurrentKF->mnId, mpCurrentKF);
 
     // Loop closed. Release Local Mapping.
-    mpLocalMapper->Release();    
+    cout << "\tResuming local mapping for involved systems." << endl;
+    mpSystem->getServer()->RequestReleaseMapping(mpMap);
+    cout << "\tLocal mapping released." << endl;
 
     mLastLoopKFid = mpCurrentKF->mnId;   
 }
@@ -657,7 +663,7 @@ void LoopClosing::ResetIfRequested()
     }
 }
 
-void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
+void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF, KeyFrame* pCurrentKF)
 {
     cout << "Starting Global Bundle Adjustment" << endl;
 
@@ -670,20 +676,23 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
     // We need to propagate the correction through the spanning tree
     {
         unique_lock<mutex> lock(mMutexGBA);
-        if(idx!=mnFullBAIdx)
+        if(idx!=mnFullBAIdx) {
+            // Insert new keyframe into server, if it exists
+            MultiAgentServer* mpServer = mpSystem->getServer();
+            if (mpServer) {
+                mpServer->InsertKeyFrame(pCurrentKF);
+            }
             return;
+        }
 
         if(!mbStopGBA)
         {
             cout << "Global Bundle Adjustment finished" << endl;
             cout << "Updating map ..." << endl;
-            mpLocalMapper->RequestStop();
-            // Wait until Local Mapping has effectively stopped
 
-            while(!mpLocalMapper->isStopped() && !mpLocalMapper->isFinished())
-            {
-                usleep(1000);
-            }
+            cout << "\tStopping local mapping for involved systems." << endl;
+            mpSystem->getServer()->RequestStopMapping(mpMap);
+            cout << "\tLocal mapping stopped." << endl;
 
             // Get Map Mutex
             unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
@@ -752,14 +761,21 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
             }            
 
             mpMap->InformNewBigChange();
-
-            mpLocalMapper->Release();
+            
+            cout << "\tResuming local mapping for involved systems." << endl;
+            mpSystem->getServer()->RequestReleaseMapping(mpMap);
+            cout << "\tLocal mapping released." << endl;
 
             cout << "Map updated!" << endl;
         }
 
         mbFinishedGBA = true;
         mbRunningGBA = false;
+    }
+    // Insert new keyframe into server, if it exists
+    MultiAgentServer* mpServer = mpSystem->getServer();
+    if (mpServer) {
+        mpServer->InsertKeyFrame(pCurrentKF);
     }
 }
 

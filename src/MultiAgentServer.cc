@@ -40,6 +40,36 @@ void MultiAgentServer::Shutdown() {
     }
 }
 
+void MultiAgentServer::ShutdownSystems() {
+    // shutdown viewers
+    for (auto pSystem : clients) {
+        pSystem->GetViewer()->RequestFinish();
+    }
+
+    // wait for viewers to shutdown
+    for (auto pSystem : clients) {
+        while (!pSystem->GetViewer()->isFinished()) {
+            usleep(5000);
+        }
+    }
+
+    // shutdown localmappers and loopclosers
+    for (auto pSystem : clients) {
+        pSystem->getLocalMapper()->RequestFinish();
+        pSystem->GetLoopCloser()->RequestFinish();
+    }
+
+    // wait for localmappers and loopclosers to shutdown
+    for (auto pSystem : clients) {
+        while (!pSystem->getLocalMapper()->isFinished()
+            || !pSystem->GetLoopCloser()->isFinished()
+            || pSystem->GetLoopCloser()->isRunningGBA()
+            ) {
+            usleep(5000);
+        }
+    }
+}
+
 void MultiAgentServer::RegisterClient(System* client) {
     clients.push_back(client);
     mpMultiMap->AddSystemAndMap(client, client->GetMap());
@@ -47,6 +77,12 @@ void MultiAgentServer::RegisterClient(System* client) {
 
 void MultiAgentServer::InsertKeyFrame(KeyFrame *pKF) {
     mpMapFusion->InsertKeyFrame(pKF);
+}
+
+void MultiAgentServer::DeleteKFsFromDB(vector<KeyFrame*> vpKFs) {
+    for (auto pKFi : vpKFs) {
+        mpKeyFrameDatabase->erase(pKFi);
+    }
 }
 
 void MultiAgentServer::SetPause(bool bPause) {

@@ -27,6 +27,8 @@ class MultiAgentServer {
         void RegisterClient(System* client);
         void InsertKeyFrame(KeyFrame *pKF);
 
+        void DeleteKFsFromDB(vector<KeyFrame*> vpKFs);
+
         void RequestStopMapping(Map* pMap);
         void RequestReleaseMapping(Map* pMatchedMap);
 
@@ -35,6 +37,7 @@ class MultiAgentServer {
         bool Pause();
 
         void Shutdown();
+        void ShutdownSystems();
 
     private:
         int mSensor;
