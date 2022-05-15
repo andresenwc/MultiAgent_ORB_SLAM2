@@ -30,9 +30,10 @@ void MultiMap::UpdateSystemMapAssociations(
 
         // for viewing
         if (pSystem->GetViewer()) {
-            pSystem->GetViewer()->RequestFinish();
+            Viewer* pOldViewer = pSystem->GetViewer();
             pSystem->SetViewer(pMatchedSystem->GetViewer());
             pSystem->SetMapDrawer(pMatchedSystem->GetMapDrawer());
+            pOldViewer->RequestFinish();
         }
     }
 

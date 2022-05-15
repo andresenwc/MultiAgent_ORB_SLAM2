@@ -790,9 +790,7 @@ void MapFusion::CovisibilityDiscovery(
     cout << "\tCovisibility Discovery!" << endl;
     cout << "\t\tStarting Discovery!" << endl;
 
-    cout << "\t\tFor KF pairs where MP fusion occurred:" << endl;
-
-    vector<int> vnMatches;
+    vector<pair<KeyFrame*, vector<MapPoint*>>> vpKFMP;
 
     // ORBmatcher for matching MPs between KFs
     ORBmatcher matcher(0.75, true);
@@ -867,7 +865,7 @@ void MapFusion::CovisibilityDiscovery(
         }
 
         /******************************
-        ** Attempt to Fuse MapPoints **
+        ** Generate Possible Fusions **
         ******************************/
 
         // For each candidate KF attempt to match and fuse MPs in the
@@ -891,27 +889,33 @@ void MapFusion::CovisibilityDiscovery(
                 }
             }
 
-            // map mutex
-            unique_lock<mutex> lock(pMatchedMap->mMutexMapUpdate);
-
-            int nMatches = matcher.Fuse(pCurKFi, vpCovisMPs);
-
-            if (nMatches) {
-                vnMatches.push_back(nMatches);
-            }
+            vpKFMP.push_back(make_pair(pCurKFi, vpCovisMPs));
         }
-
-        /***********************
-        ** Update Connections **
-        ***********************/
-
-        pCurKFi->UpdateConnections();
     }
 
+    /********************
+    ** Attempt Fusions **
+    ********************/
+
+    cout << "\t\tStopping local mapping for involved systems." << endl;
+    mpServer->RequestStopMapping(pMatchedMap);
+    cout << "\t\tLocal mapping stopped." << endl;
+    vector<int> vnMatches;
+    for (auto pKFMP : vpKFMP) {
+        KeyFrame* pKFi = pKFMP.first;
+        vector<MapPoint*> vpMPs = pKFMP.second;
+        int nMatches = matcher.Fuse(pKFi, vpMPs);
+        if (nMatches) {
+            vnMatches.push_back(nMatches);
+        }
+    }
     // Make sure all connections are updated
     for (auto pKFi : vpCurrentMapKFs) {
         pKFi->UpdateConnections();
     }
+    cout << "\t\tResuming local mapping for involved systems." << endl;
+    mpServer->RequestReleaseMapping(pMatchedMap);
+    cout << "\t\tLocal mapping released." << endl;
 
     mbFinishedCD = true;
     mbRunningCD = false;
