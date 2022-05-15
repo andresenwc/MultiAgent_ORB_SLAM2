@@ -26,10 +26,10 @@ def plot_traj(seq: str, n: int):
     tgt = file_interface.read_kitti_poses_file("./traj_gt/{}.txt".format(seq))
 
     # experimental trajectories
-    tec = file_interface.read_kitti_poses_file("./traj_exp/{}.txt".format(seq))
+    tec = file_interface.read_kitti_poses_file("./traj_exp/trial0/{}.txt".format(seq))
     te = []
     for i in range(n):
-        fname = "./traj_exp/{}_{}.txt".format(seq, i)
+        fname = "./traj_exp/trial0/{}_{}.txt".format(seq, i)
         te.append(file_interface.read_kitti_poses_file(fname))
 
     # align and scale the trajectories
