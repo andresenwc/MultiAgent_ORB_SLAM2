@@ -91,18 +91,18 @@ public:
     int nObs;
 
     // Variables used by the tracking
-    float mTrackProjX;
-    float mTrackProjY;
-    float mTrackProjXR;
-    bool mbTrackInView;
-    int mnTrackScaleLevel;
-    float mTrackViewCos;
-    long unsigned int mnTrackReferenceForFrame;
-    long unsigned int mnLastFrameSeen;
+    std::map<System*, float> mTrackProjX;
+    std::map<System*, float> mTrackProjY;
+    std::map<System*, float> mTrackProjXR;
+    std::map<System*, bool> mbTrackInView;
+    std::map<System*, int> mnTrackScaleLevel;
+    std::map<System*, float> mTrackViewCos;
+    std::map<System*, long unsigned int> mnTrackReferenceForFrame;
+    std::map<System*, long unsigned int> mnLastFrameSeen;
 
     // Variables used by local mapping
-    long unsigned int mnBALocalForKF;
-    long unsigned int mnFuseCandidateForKF;
+    std::map<System*, long unsigned int> mnBALocalForKF;
+    std::map<System*, long unsigned int> mnFuseCandidateForKF;
 
     // Variables used by loop closing
     long unsigned int mnLoopPointForKF;

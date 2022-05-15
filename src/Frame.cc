@@ -37,7 +37,7 @@ Frame::Frame()
 
 //Copy Constructor
 Frame::Frame(const Frame &frame)
-    :mpORBvocabulary(frame.mpORBvocabulary), mpORBextractorLeft(frame.mpORBextractorLeft), mpORBextractorRight(frame.mpORBextractorRight),
+    :mpSystem(frame.mpSystem), mpORBvocabulary(frame.mpORBvocabulary), mpORBextractorLeft(frame.mpORBextractorLeft), mpORBextractorRight(frame.mpORBextractorRight),
      mTimeStamp(frame.mTimeStamp), mK(frame.mK.clone()), mDistCoef(frame.mDistCoef.clone()),
      mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys),
      mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn),  mvuRight(frame.mvuRight),
@@ -58,8 +58,8 @@ Frame::Frame(const Frame &frame)
 }
 
 
-Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
-    :mpORBvocabulary(voc),mpORBextractorLeft(extractorLeft),mpORBextractorRight(extractorRight), mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
+Frame::Frame(System* pSystem, const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+    :mpSystem(pSystem), mpORBvocabulary(voc),mpORBextractorLeft(extractorLeft),mpORBextractorRight(extractorRight), mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
      mpReferenceKF(static_cast<KeyFrame*>(NULL))
 {
     // Frame ID
@@ -116,8 +116,8 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     AssignFeaturesToGrid();
 }
 
-Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
-    :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
+Frame::Frame(System* pSystem, const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+    :mpSystem(pSystem), mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
      mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
 {
     // Frame ID
@@ -171,8 +171,8 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
 }
 
 
-Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
-    :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
+Frame::Frame(System* pSystem, const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+    :mpSystem(pSystem), mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
      mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
 {
     // Frame ID
@@ -266,9 +266,9 @@ void Frame::UpdatePoseMatrices()
     mOw = -mRcw.t()*mtcw;
 }
 
-bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
+bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit, System* pSystem)
 {
-    pMP->mbTrackInView = false;
+    pMP->mbTrackInView[pSystem] = false;
 
     // 3D in absolute coordinates
     cv::Mat P = pMP->GetWorldPos(); 
@@ -314,12 +314,12 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
     const int nPredictedLevel = pMP->PredictScale(dist,this);
 
     // Data used by the tracking
-    pMP->mbTrackInView = true;
-    pMP->mTrackProjX = u;
-    pMP->mTrackProjXR = u - mbf*invz;
-    pMP->mTrackProjY = v;
-    pMP->mnTrackScaleLevel= nPredictedLevel;
-    pMP->mTrackViewCos = viewCos;
+    pMP->mbTrackInView[pSystem] = true;
+    pMP->mTrackProjX[pSystem] = u;
+    pMP->mTrackProjXR[pSystem] = u - mbf*invz;
+    pMP->mTrackProjY[pSystem] = v;
+    pMP->mnTrackScaleLevel[pSystem] = nPredictedLevel;
+    pMP->mTrackViewCos[pSystem] = viewCos;
 
     return true;
 }

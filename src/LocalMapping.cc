@@ -84,7 +84,7 @@ void LocalMapping::Run()
             {
                 // Local BA
                 if(mpMap->KeyFramesInMap()>2)
-                    Optimizer::LocalBundleAdjustment(mpCurrentKeyFrame,&mbAbortBA, mpMap);
+                    Optimizer::LocalBundleAdjustment(mpCurrentKeyFrame,&mbAbortBA, mpMap, mpSystem);
 
                 // Check redundant local Keyframes
                 KeyFrameCulling();
@@ -468,17 +468,17 @@ void LocalMapping::SearchInNeighbors()
     for(vector<KeyFrame*>::const_iterator vit=vpNeighKFs.begin(), vend=vpNeighKFs.end(); vit!=vend; vit++)
     {
         KeyFrame* pKFi = *vit;
-        if(pKFi->isBad() || pKFi->mnFuseTargetForKF == mpCurrentKeyFrame->mnId)
+        if(pKFi->isBad() || pKFi->mnFuseTargetForKF[mpSystem] == mpCurrentKeyFrame->mnId)
             continue;
         vpTargetKFs.push_back(pKFi);
-        pKFi->mnFuseTargetForKF = mpCurrentKeyFrame->mnId;
+        pKFi->mnFuseTargetForKF[mpSystem] = mpCurrentKeyFrame->mnId;
 
         // Extend to some second neighbors
         const vector<KeyFrame*> vpSecondNeighKFs = pKFi->GetBestCovisibilityKeyFrames(5);
         for(vector<KeyFrame*>::const_iterator vit2=vpSecondNeighKFs.begin(), vend2=vpSecondNeighKFs.end(); vit2!=vend2; vit2++)
         {
             KeyFrame* pKFi2 = *vit2;
-            if(pKFi2->isBad() || pKFi2->mnFuseTargetForKF==mpCurrentKeyFrame->mnId || pKFi2->mnId==mpCurrentKeyFrame->mnId)
+            if(pKFi2->isBad() || pKFi2->mnFuseTargetForKF[mpSystem] == mpCurrentKeyFrame->mnId || pKFi2->mnId==mpCurrentKeyFrame->mnId)
                 continue;
             vpTargetKFs.push_back(pKFi2);
         }
@@ -510,9 +510,9 @@ void LocalMapping::SearchInNeighbors()
             MapPoint* pMP = *vitMP;
             if(!pMP)
                 continue;
-            if(pMP->isBad() || pMP->mnFuseCandidateForKF == mpCurrentKeyFrame->mnId)
+            if(pMP->isBad() || pMP->mnFuseCandidateForKF[mpSystem] == mpCurrentKeyFrame->mnId)
                 continue;
-            pMP->mnFuseCandidateForKF = mpCurrentKeyFrame->mnId;
+            pMP->mnFuseCandidateForKF[mpSystem] = mpCurrentKeyFrame->mnId;
             vpFuseCandidates.push_back(pMP);
         }
     }

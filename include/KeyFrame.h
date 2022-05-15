@@ -30,6 +30,7 @@
 #include "KeyFrameDatabase.h"
 
 #include <mutex>
+#include<map>
 
 
 namespace ORB_SLAM2
@@ -143,12 +144,12 @@ public:
     const float mfGridElementHeightInv;
 
     // Variables used by the tracking
-    long unsigned int mnTrackReferenceForFrame;
-    long unsigned int mnFuseTargetForKF;
+    std::map<System*, long unsigned int> mnTrackReferenceForFrame;
+    std::map<System*, long unsigned int> mnFuseTargetForKF;
 
     // Variables used by the local mapping
-    long unsigned int mnBALocalForKF;
-    long unsigned int mnBAFixedForKF;
+    std::map<System*, long unsigned int> mnBALocalForKF;
+    std::map<System*, long unsigned int> mnBAFixedForKF;
 
     // Variables used by the keyframe database
     long unsigned int mnLoopQuery;

@@ -48,25 +48,27 @@ int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoint
 
     const bool bFactor = th!=1.0;
 
+    System* pSystem = F.mpSystem;
+
     for(size_t iMP=0; iMP<vpMapPoints.size(); iMP++)
     {
         MapPoint* pMP = vpMapPoints[iMP];
-        if(!pMP->mbTrackInView)
+        if(!pMP->mbTrackInView[pSystem])
             continue;
 
         if(pMP->isBad())
             continue;
 
-        const int &nPredictedLevel = pMP->mnTrackScaleLevel;
+        const int &nPredictedLevel = pMP->mnTrackScaleLevel[pSystem];
 
         // The size of the window will depend on the viewing direction
-        float r = RadiusByViewingCos(pMP->mTrackViewCos);
+        float r = RadiusByViewingCos(pMP->mTrackViewCos[pSystem]);
 
         if(bFactor)
             r*=th;
 
         const vector<size_t> vIndices =
-                F.GetFeaturesInArea(pMP->mTrackProjX,pMP->mTrackProjY,r*F.mvScaleFactors[nPredictedLevel],nPredictedLevel-1,nPredictedLevel);
+                F.GetFeaturesInArea(pMP->mTrackProjX[pSystem], pMP->mTrackProjY[pSystem],r*F.mvScaleFactors[nPredictedLevel],nPredictedLevel-1,nPredictedLevel);
 
         if(vIndices.empty())
             continue;
@@ -90,7 +92,7 @@ int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoint
 
             if(F.mvuRight[idx]>0)
             {
-                const float er = fabs(pMP->mTrackProjXR-F.mvuRight[idx]);
+                const float er = fabs(pMP->mTrackProjXR[pSystem] -F.mvuRight[idx]);
                 if(er>r*F.mvScaleFactors[nPredictedLevel])
                     continue;
             }

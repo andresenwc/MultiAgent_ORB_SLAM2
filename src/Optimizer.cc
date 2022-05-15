@@ -452,19 +452,19 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     return nInitialCorrespondences-nBad;
 }
 
-void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap)
+void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap, System* pSystem)
 {    
     // Local KeyFrames: First Breath Search from Current Keyframe
     list<KeyFrame*> lLocalKeyFrames;
 
     lLocalKeyFrames.push_back(pKF);
-    pKF->mnBALocalForKF = pKF->mnId;
+    pKF->mnBALocalForKF[pSystem] = pKF->mnId;
 
     const vector<KeyFrame*> vNeighKFs = pKF->GetVectorCovisibleKeyFrames();
     for(int i=0, iend=vNeighKFs.size(); i<iend; i++)
     {
         KeyFrame* pKFi = vNeighKFs[i];
-        pKFi->mnBALocalForKF = pKF->mnId;
+        pKFi->mnBALocalForKF[pSystem] = pKF->mnId;
         if(!pKFi->isBad())
             lLocalKeyFrames.push_back(pKFi);
     }
@@ -479,10 +479,10 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
             MapPoint* pMP = *vit;
             if(pMP)
                 if(!pMP->isBad())
-                    if(pMP->mnBALocalForKF!=pKF->mnId)
+                    if(pMP->mnBALocalForKF[pSystem] != pKF->mnId)
                     {
                         lLocalMapPoints.push_back(pMP);
-                        pMP->mnBALocalForKF=pKF->mnId;
+                        pMP->mnBALocalForKF[pSystem] = pKF->mnId;
                     }
         }
     }
@@ -496,9 +496,10 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         {
             KeyFrame* pKFi = mit->first;
 
-            if(pKFi->mnBALocalForKF!=pKF->mnId && pKFi->mnBAFixedForKF!=pKF->mnId)
+            if (pKFi->mnBALocalForKF[pSystem] != pKF->mnId 
+                && pKFi->mnBAFixedForKF[pSystem] != pKF->mnId)
             {                
-                pKFi->mnBAFixedForKF=pKF->mnId;
+                pKFi->mnBAFixedForKF[pSystem] = pKF->mnId;
                 if(!pKFi->isBad())
                     lFixedCameras.push_back(pKFi);
             }

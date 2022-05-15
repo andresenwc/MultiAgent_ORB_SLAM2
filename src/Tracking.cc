@@ -207,7 +207,7 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
         }
     }
 
-    mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+    mCurrentFrame = Frame(mpSystem, mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
     Track();
 
@@ -238,7 +238,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
     if((fabs(mDepthMapFactor-1.0f)>1e-5) || imDepth.type()!=CV_32F)
         imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
 
-    mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+    mCurrentFrame = Frame(mpSystem, mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
     Track();
 
@@ -266,9 +266,9 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
     }
 
     if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
-        mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        mCurrentFrame = Frame(mpSystem, mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
     else
-        mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        mCurrentFrame = Frame(mpSystem, mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
     Track();
 
@@ -799,8 +799,8 @@ bool Tracking::TrackReferenceKeyFrame()
 
                 mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
                 mCurrentFrame.mvbOutlier[i]=false;
-                pMP->mbTrackInView = false;
-                pMP->mnLastFrameSeen = mCurrentFrame.mnId;
+                pMP->mbTrackInView[mpSystem] = false;
+                pMP->mnLastFrameSeen[mpSystem] = mCurrentFrame.mnId;
                 nmatches--;
             }
             else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
@@ -922,8 +922,8 @@ bool Tracking::TrackWithMotionModel()
 
                 mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
                 mCurrentFrame.mvbOutlier[i]=false;
-                pMP->mbTrackInView = false;
-                pMP->mnLastFrameSeen = mCurrentFrame.mnId;
+                pMP->mbTrackInView[mpSystem] = false;
+                pMP->mnLastFrameSeen[mpSystem] = mCurrentFrame.mnId;
                 nmatches--;
             }
             else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
@@ -1168,8 +1168,8 @@ void Tracking::SearchLocalPoints()
             else
             {
                 pMP->IncreaseVisible();
-                pMP->mnLastFrameSeen = mCurrentFrame.mnId;
-                pMP->mbTrackInView = false;
+                pMP->mnLastFrameSeen[mpSystem] = mCurrentFrame.mnId;
+                pMP->mbTrackInView[mpSystem] = false;
             }
         }
     }
@@ -1180,12 +1180,12 @@ void Tracking::SearchLocalPoints()
     for(vector<MapPoint*>::iterator vit=mvpLocalMapPoints.begin(), vend=mvpLocalMapPoints.end(); vit!=vend; vit++)
     {
         MapPoint* pMP = *vit;
-        if(pMP->mnLastFrameSeen == mCurrentFrame.mnId)
+        if(pMP->mnLastFrameSeen[mpSystem] == mCurrentFrame.mnId)
             continue;
         if(pMP->isBad())
             continue;
         // Project (this fills MapPoint variables for matching)
-        if(mCurrentFrame.isInFrustum(pMP,0.5))
+        if(mCurrentFrame.isInFrustum(pMP,0.5,mpSystem))
         {
             pMP->IncreaseVisible();
             nToMatch++;
@@ -1234,12 +1234,12 @@ void Tracking::UpdateLocalPoints()
             MapPoint* pMP = *itMP;
             if(!pMP)
                 continue;
-            if(pMP->mnTrackReferenceForFrame==mCurrentFrame.mnId)
+            if(pMP->mnTrackReferenceForFrame[mpSystem] == mCurrentFrame.mnId)
                 continue;
             if(!pMP->isBad())
             {
                 mvpLocalMapPoints.push_back(pMP);
-                pMP->mnTrackReferenceForFrame=mCurrentFrame.mnId;
+                pMP->mnTrackReferenceForFrame[mpSystem] = mCurrentFrame.mnId;
             }
         }
     }
@@ -1292,7 +1292,7 @@ void Tracking::UpdateLocalKeyFrames()
         }
 
         mvpLocalKeyFrames.push_back(it->first);
-        pKF->mnTrackReferenceForFrame = mCurrentFrame.mnId;
+        pKF->mnTrackReferenceForFrame[mpSystem] = mCurrentFrame.mnId;
     }
 
 
@@ -1312,10 +1312,10 @@ void Tracking::UpdateLocalKeyFrames()
             KeyFrame* pNeighKF = *itNeighKF;
             if(!pNeighKF->isBad())
             {
-                if(pNeighKF->mnTrackReferenceForFrame!=mCurrentFrame.mnId)
+                if(pNeighKF->mnTrackReferenceForFrame[mpSystem] != mCurrentFrame.mnId)
                 {
                     mvpLocalKeyFrames.push_back(pNeighKF);
-                    pNeighKF->mnTrackReferenceForFrame=mCurrentFrame.mnId;
+                    pNeighKF->mnTrackReferenceForFrame[mpSystem] = mCurrentFrame.mnId;
                     break;
                 }
             }
@@ -1327,10 +1327,10 @@ void Tracking::UpdateLocalKeyFrames()
             KeyFrame* pChildKF = *sit;
             if(!pChildKF->isBad())
             {
-                if(pChildKF->mnTrackReferenceForFrame!=mCurrentFrame.mnId)
+                if(pChildKF->mnTrackReferenceForFrame[mpSystem] != mCurrentFrame.mnId)
                 {
                     mvpLocalKeyFrames.push_back(pChildKF);
-                    pChildKF->mnTrackReferenceForFrame=mCurrentFrame.mnId;
+                    pChildKF->mnTrackReferenceForFrame[mpSystem] = mCurrentFrame.mnId;
                     break;
                 }
             }
@@ -1339,10 +1339,10 @@ void Tracking::UpdateLocalKeyFrames()
         KeyFrame* pParent = pKF->GetParent();
         if(pParent)
         {
-            if(pParent->mnTrackReferenceForFrame!=mCurrentFrame.mnId)
+            if(pParent->mnTrackReferenceForFrame[mpSystem] != mCurrentFrame.mnId)
             {
                 mvpLocalKeyFrames.push_back(pParent);
-                pParent->mnTrackReferenceForFrame=mCurrentFrame.mnId;
+                pParent->mnTrackReferenceForFrame[mpSystem] = mCurrentFrame.mnId;
                 break;
             }
         }

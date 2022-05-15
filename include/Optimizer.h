@@ -25,6 +25,7 @@
 #include "MapPoint.h"
 #include "KeyFrame.h"
 #include "LoopClosing.h"
+#include "System.h"
 #include "Frame.h"
 
 #include "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.h"
@@ -33,6 +34,7 @@ namespace ORB_SLAM2
 {
 
 class LoopClosing;
+class System;
 
 class Optimizer
 {
@@ -42,7 +44,7 @@ public:
                                  const bool bRobust = true);
     void static GlobalBundleAdjustemnt(Map* pMap, int nIterations=5, bool *pbStopFlag=NULL,
                                        const unsigned long nLoopKF=0, const bool bRobust = true);
-    void static LocalBundleAdjustment(KeyFrame* pKF, bool *pbStopFlag, Map *pMap);
+    void static LocalBundleAdjustment(KeyFrame* pKF, bool *pbStopFlag, Map *pMap, System* pSystem);
     int static PoseOptimization(Frame* pFrame);
 
     // if bFixScale is true, 6DoF optimization (stereo,rgbd), 7DoF otherwise (mono)
