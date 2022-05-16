@@ -2,7 +2,8 @@ CMakeLists.txt.user
 
 Examples/DataSets
 Examples/MultiAgent/stereo_kitti_twoagent
-Examples/MultiAgent/generic_multiagent
+Examples/MultiAgent/generic_split_seq
+Examples/MultiAgent/euroc_two_seq
 Examples/Monocular/mono_euroc
 Examples/Monocular/mono_kitti
 Examples/Monocular/mono_tum
@@ -16,6 +17,10 @@ Examples/ROS/ORB_SLAM2/build/
 Examples/Stereo/stereo_euroc
 Examples/Stereo/stereo_kitti
 
+# traj and stats outputs
+/KFT_SLAM*
+/SLAM*
+/stats.csv
 KeyFrameTrajectory.txt
 CameraTrajectory.txt
 CameraTrajectory1.txt
@@ -31,6 +36,7 @@ pyenv
 *.log
 *.pdf
 *.synctex.gz
+
 
 Thirdparty/DBoW2/build/
 Thirdparty/DBoW2/lib/

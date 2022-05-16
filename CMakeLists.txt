@@ -83,12 +83,19 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 
 # Build examples
 
-# Generic MultiAgent
+# Generic Split Sequence
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/MultiAgent)
 
-add_executable(generic_multiagent
-Examples/MultiAgent/generic_multiagent.cc)
-target_link_libraries(generic_multiagent ${PROJECT_NAME})
+add_executable(generic_split_seq
+Examples/MultiAgent/generic_split_seq.cc)
+target_link_libraries(generic_split_seq ${PROJECT_NAME})
+
+# EuRoC Two Sequence
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/MultiAgent)
+
+add_executable(euroc_two_seq
+Examples/MultiAgent/euroc_two_seq.cc)
+target_link_libraries(euroc_two_seq ${PROJECT_NAME})
 
 # Stereo KITTI two-agent
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/MultiAgent)
