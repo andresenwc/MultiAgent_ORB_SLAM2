@@ -2,8 +2,8 @@
 # ../ORB_SLAM2/Examples/Stereo/stereo_kitti ../ORB_SLAM2/Vocabulary/ORBvoc.txt ../ORB_SLAM2/Examples/Stereo/KITTI00-02.yaml ./Examples/DataSets/kitti/data_odometry_gray/dataset/sequences/00/
 # mv ./CameraTrajectory.txt ./Analysis/kitti/traj_os2/trial4/00.txt
 
-../ORB_SLAM2/Examples/Stereo/stereo_kitti ../ORB_SLAM2/Vocabulary/ORBvoc.txt ../ORB_SLAM2/Examples/Stereo/KITTI00-02.yaml ./Examples/DataSets/kitti/data_odometry_gray/dataset/sequences/02/
-mv ./CameraTrajectory.txt ./Analysis/kitti/traj_os2/trial4/02.txt
+# ../ORB_SLAM2/Examples/Stereo/stereo_kitti ../ORB_SLAM2/Vocabulary/ORBvoc.txt ../ORB_SLAM2/Examples/Stereo/KITTI00-02.yaml ./Examples/DataSets/kitti/data_odometry_gray/dataset/sequences/02/
+# mv ./CameraTrajectory.txt ./Analysis/kitti/traj_os2/trial4/02.txt
 
 # ../ORB_SLAM2/Examples/Stereo/stereo_kitti ../ORB_SLAM2/Vocabulary/ORBvoc.txt ../ORB_SLAM2/Examples/Stereo/KITTI04-12.yaml ./Examples/DataSets/kitti/data_odometry_gray/dataset/sequences/05/
 # mv ./CameraTrajectory.txt ./Analysis/kitti/traj_os2/trial4/05.txt

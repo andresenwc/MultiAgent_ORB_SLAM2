@@ -775,15 +775,6 @@ void MapFusion::CovisibilityDiscovery(
     std::vector<KeyFrame*> vpCurrentMapKFs, Map* pMatchedMap,
     KeyFrameDatabase* pMatchedKFDB) {
 
-    // For analysis. See Defines.h.
-    if (MAP_FUSION_PAUSE) {
-        cout << "Pausing before covis discovery." << endl;
-        mpServer->SetPause(true);
-        while (mpServer->Pause()) {
-            sleep(1);
-        }
-    }
-
     // stats
     std::chrono::steady_clock::time_point b = std::chrono::steady_clock::now();
 
@@ -900,6 +891,14 @@ void MapFusion::CovisibilityDiscovery(
     cout << "\t\tStopping local mapping for involved systems." << endl;
     mpServer->RequestStopMapping(pMatchedMap);
     cout << "\t\tLocal mapping stopped." << endl;
+    // For analysis. See Defines.h.
+    if (MAP_FUSION_PAUSE) {
+        cout << "Pausing before covis fusions." << endl;
+        mpServer->SetPause(true);
+        while (mpServer->Pause()) {
+            sleep(1);
+        }
+    }
     vector<int> vnMatches;
     for (auto pKFMP : vpKFMP) {
         KeyFrame* pKFi = pKFMP.first;
@@ -912,6 +911,15 @@ void MapFusion::CovisibilityDiscovery(
     // Make sure all connections are updated
     for (auto pKFi : vpCurrentMapKFs) {
         pKFi->UpdateConnections();
+    }
+    pMatchedMap->InformNewBigChange();
+    // For analysis. See Defines.h.
+    if (MAP_FUSION_PAUSE) {
+        cout << "Pausing after covis fusions." << endl;
+        mpServer->SetPause(true);
+        while (mpServer->Pause()) {
+            sleep(1);
+        }
     }
     cout << "\t\tResuming local mapping for involved systems." << endl;
     mpServer->RequestReleaseMapping(pMatchedMap);
